@@ -1,0 +1,119 @@
+<!-- id: h-s07 | title: Stage 7 · A SNP that travels with the repeat | group: The project | stage: 7 | tab: yes | tabtitle: Stage 7 – A SNP that travels with the repeat | summary: Linkage disequilibrium: r² between the repeat and 6,140 SNVs of 500 kb of the pangenome; the tag SNPs rs228701 and rs1773135 | keys: stage 7 linkage disequilibrium ld r2 r squared correlation tag snp tagging rs228701 rs1773135 dbsnp rsid bcftools annotate view -m2 -M2 -v snps query matrix apply cor haplotypes recombination -->
+<h1>Stage 7 · A SNP that travels with the repeat</h1>
+<div class="stage-meta"><span class="when">Week 7</span><span>about 6 hours</span><span class="stage-progress"></span></div>
+<p class="lede">The big studies of sleep never measured the repeat – but they measured millions of SNPs. If one SNP always sits on the same chromosomes as the five-repeat allele, then every study that measured that SNP has measured the repeat too, without knowing it. Find out whether such a SNP exists, using the 462 phased haplotypes of the pangenome.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>linkage disequilibrium (LD), and r² as a measure of it</li>
+<li>to give variants their standard names (rsIDs) from dbSNP with <code>bcftools annotate</code></li>
+<li>to turn a VCF into a table of haplotypes, and work with a matrix in R</li>
+<li>to apply a function to every row of a matrix</li>
+</ul></div>
+
+<div class="callout science"><div class="co-t">Linkage disequilibrium</div>
+<p>Every new mutation happens on one chromosome, next to the variants that chromosome already carries. Over the generations, recombination shuffles a chromosome's variants – but slowly: variants close together are rarely separated, and stay together on the same <b>haplotypes</b> for thousands of generations. Variants that occur together more often than chance are in <b>linkage disequilibrium</b>. The usual measure is <b>r²</b>: the square of the correlation between two variants across haplotypes, from 0 (independent) to 1 (one predicts the other perfectly). A <b>tag SNP</b> is one with a high r² with the variant you care about. A study of <i>N</i> people that measures a tag with r² has about the power of a study of r² × <i>N</i> people measuring the variant itself.</p></div>
+
+<h2>1. The variants around <i>PER3</i>, and their names</h2>
+<p><code>hprc_per3_500kb.vcf.gz</code> has the variants of the same 231 people across 500,000 letters, from chr1:7,580,000 to 8,080,000 – <i>PER3</i> and its neighbours. Each record is a single variant: the pangenome's bubbles were broken into SNVs, insertions and deletions. They have no names yet. dbSNP is the database that gives every known variant an <b>rsID</b>; <code>dbsnp157_per3_500kb.vcf.gz</code> holds its variants for the same stretch. <code>bcftools annotate</code> copies the ID of each dbSNP variant to the variant with the same position and alleles:</p>
+<pre class="code" data-run="term"><code>cd ~/project
+bcftools view -H /data/examples/per3/hprc/hprc_per3_500kb.vcf.gz | wc -l
+bcftools annotate -a /data/examples/per3/reference/dbsnp157_per3_500kb.vcf.gz -c ID -Oz -o results/hprc_500kb_rsid.vcf.gz /data/examples/per3/hprc/hprc_per3_500kb.vcf.gz
+bcftools view -H results/hprc_500kb_rsid.vcf.gz | cut -f 1-5 | head
+bcftools query -f '%ID\n' results/hprc_500kb_rsid.vcf.gz | grep -c "^rs"</code></pre>
+<p><code>-a</code> names the file to take the IDs from, <code>-c ID</code> the column to copy, and <code>-Oz -o</code> writes a compressed VCF.</p>
+<div class="callout check"><div class="co-t">Check</div><p>7,441 variants, of which 6,890 now have an rsID. Those without are new, or written differently in the two files.</p></div>
+
+<h2>2. A table of haplotypes</h2>
+<p>Keep the simplest variants – SNVs with two alleles – and write their genotypes as a table: <code>-m2 -M2</code> keeps variants with exactly two alleles, <code>-v snps</code> only SNVs. In the query, what is between <code>[ ]</code> is repeated for every person; <code>sed 's/|/\t/g'</code> turns each <code>0|1</code> into two columns, one per haplotype.</p>
+<pre class="code" data-run="term"><code>bcftools view -m2 -M2 -v snps results/hprc_500kb_rsid.vcf.gz | bcftools query -f '%POS\t%ID\t%REF\t%ALT[\t%GT]\n' | sed 's/|/\t/g' &gt; results/snv_haplotypes.tsv
+wc -l results/snv_haplotypes.tsv
+cut -f 1-12 results/snv_haplotypes.tsv | head -3
+bcftools query -l results/hprc_500kb_rsid.vcf.gz &gt; results/samples_in_vcf_order.txt</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p><b>6,140</b> SNVs, each a row of 4 + 462 columns: position, rsID, the two alleles, then 0 or 1 for each haplotype. A few genotypes are <code>.</code> – unknown, where one of a person's assemblies has a gap.</p></div>
+
+<h2>3. r² with the repeat</h2>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage07-ld|Stage 7 – A SNP that travels with the repeat">Open my stage 7 notebook</button></div>
+<p>Read the table and name its columns: the haplotypes are in the order of the VCF's samples, two each.</p>
+<pre class="code" data-run="r"><code>snv &lt;- read.delim("~/project/results/snv_haplotypes.tsv", header = FALSE, na.strings = ".")
+dim(snv)
+samples &lt;- readLines("~/project/results/samples_in_vcf_order.txt")
+hap_names &lt;- paste0(rep(samples, each = 2), "_hap", 1:2)
+head(hap_names)
+colnames(snv) &lt;- c("pos", "rsid", "ref", "alt", hap_names)
+G &lt;- as.matrix(snv[, hap_names])     # a matrix: one row per SNV, one column per haplotype
+dim(G)
+G[1:3, 1:6]</code></pre>
+<p>Now the repeat, as a row of the same kind: 1 for a five-repeat haplotype, 0 for a four-repeat one, in the same order as the columns of <code>G</code>. <code>match</code> finds where each name of <code>hap_names</code> is in your allele table, so the order is right whatever the order of the table.</p>
+<pre class="code" data-run="r"><code>alleles &lt;- read.delim("~/project/results/vntr_alleles.tsv")
+vntr &lt;- ifelse(alleles$repeats[match(hap_names, alleles$haplotype)] == 5, 1, 0)
+table(vntr)
+cor(G[1, ], vntr, use = "complete.obs")^2</code></pre>
+<p>The last line is r² between the first SNV and the repeat (<code>use = "complete.obs"</code> skips the unknown genotypes). <code>apply(G, 1, f)</code> does the same for every row of <code>G</code>:</p>
+<pre class="code" data-run="r"><code>r2 &lt;- apply(G, 1, function(x) suppressWarnings(cor(x, vntr, use = "complete.obs"))^2)
+snv$r2 &lt;- r2
+top &lt;- snv[order(-snv$r2), c("pos", "rsid", "ref", "alt", "r2")]
+head(top, 10)</code></pre>
+<p>(<code>suppressWarnings</code> hides the warnings of SNVs that every haplotype shares: their correlation cannot be computed, and is <code>NA</code>.)</p>
+<div class="callout check"><div class="co-t">Check</div><p>Two SNVs have r² = <b>0.990</b> with the repeat: <b>rs228701</b> (7,829,744, C/G) and <b>rs1773135</b> (7,830,204, A/G), 144 letters before the first unit and 47 after the last. Next come rs228665 (0.878) and rs12023156 (0.748).</p></div>
+
+<h2>4. A picture of LD</h2>
+<pre class="code" data-run="r"><code>png("~/project/figures/fig_ld_vntr.png", width = 1600, height = 800, res = 200)
+plot(snv$pos / 1e6, snv$r2, pch = 20, cex = 0.5, xlab = "chr1 position (Mb, GRCh38)",
+     ylab = expression(r^2 ~ "with the PER3 VNTR"), main = "Which SNVs travel with the 5-repeat allele?")
+rect(7.784183, -0.05, 7.845181, -0.01, col = "grey40", border = NA)   # PER3
+text(7.8147, 0.03, "PER3", cex = 0.7)
+abline(v = 7.8299, lty = 3)                                            # the repeat
+dev.off()</code></pre>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>How far from the repeat do SNVs with r² above 0.8 reach? Above 0.5? What does that tell you about recombination around <i>PER3</i>?</li>
+<li>Most SNVs, even next to the repeat, have r² near 0. Why? (Hint: compare the allele frequencies. Can a SNV whose rare allele is on 1% of chromosomes have a high r² with an allele on 29%?)</li>
+<li>rs12023156 (7,830,004) lies <i>inside</i> the repeat. Which change of stage 5 is it, and why is its r² only 0.75?</li>
+</ul></div>
+
+<h2>5. Does the tag work everywhere?</h2>
+<p>LD differs between populations: African populations are older and have had more time for recombination to break haplotypes up. A tag that works in Europeans may fail in Africans. Test the two best SNVs in each continental group:</p>
+<pre class="code" data-run="r"><code>samp &lt;- read.delim("/data/examples/per3/hprc/hprc_samples.tsv")
+sup &lt;- samp$superpopulation[match(sub("_hap[12]$", "", hap_names), samp$sample)]
+row_of &lt;- function(id) which(snv$rsid == id)[1]      # the row of a SNV, from its rsID
+best &lt;- c("rs228701", "rs1773135")
+sapply(split(seq_along(vntr), sup), function(i)
+  sapply(best, function(id) cor(G[row_of(id), i], vntr[i], use = "complete.obs")^2))</code></pre>
+<p><code>split</code> makes a list of the column numbers of each group, and <code>sapply</code> works out r² within each.</p>
+<div class="callout check"><div class="co-t">Check</div><p>r² = 1 in AMR, EAS, EUR and SAS, and 0.970 in AFR.</p></div>
+<p>Which allele of rs228701 goes with which allele of the repeat?</p>
+<pre class="code" data-run="r"><code>table(vntr = vntr, rs228701 = G[row_of("rs228701"), ])</code></pre>
+<div class="task"><div class="task-t">Your turn: the exception</div>
+<p>The G allele of rs228701 (coded 1) is on 326 of the 327 four-repeat haplotypes, and the C allele (0) on all 135 five-repeat ones. Which haplotype is the exception? Look up its structure in your allele table. What could explain it?</p>
+<details class="hint"><summary>Show a hint</summary><p><code>hap_names[vntr == 0 &amp; G[row_of("rs228701"), ] == 0]</code> – the haplotypes for which both tests are TRUE. Then <code>alleles[alleles$haplotype == "…", ]</code>.</p></details>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="r"><code>odd &lt;- hap_names[which(vntr == 0 &amp; G[row_of("rs228701"), ] == 0)]
+odd
+alleles[alleles$haplotype %in% odd, ]</code></pre>
+<p>HG02257_hap2 – the rare <code>R1-R2-R4*8C,14C-R5</code> allele of stage 5, which lacks R3 rather than R2. It has four units, but the SNVs around it are those of five-repeat haplotypes. The likeliest story: a five-repeat chromosome lost a unit a second time, separately from the event that made the common four-repeat alleles. A tag cannot follow a change that happened again on another haplotype – and that is the 1% of r² that is missing.</p></details></div>
+<p>Save the r² of every SNV – you will need them in stage 9:</p>
+<pre class="code" data-run="r"><code>write.table(snv[, c("pos", "rsid", "ref", "alt", "r2")], "~/project/results/ld_with_vntr.tsv",
+            sep = "\t", quote = FALSE, row.names = FALSE)</code></pre>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>What LD and r² are, in your own words, and why a tag SNP is useful.</li>
+<li>The two tags, their positions, alleles and r² – overall and in each group – and which allele goes with which repeat allele. This is a key result of your project.</li>
+<li>The exception, and your explanation.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Find the best tag for each of the four types of stage 5 (make a row like <code>vntr</code> that is 1 for 4B and 0 otherwise, and so on). Is there a SNV that tags 4B? 5A?</li>
+<li>Look up rs228701 in Ensembl (Databases tab): its frequencies in the populations of the 1000 Genomes Project, and its consequence. Do the frequencies of its C allele resemble your frequencies of the five-repeat allele?</li>
+<li>D′ is another measure of LD. Find out how it differs from r², and why tag SNPs are chosen by r².</li>
+</ul>
+<ul class="checklist">
+<li data-check="s7-annotate">I gave the variants their rsIDs with <code>bcftools annotate</code>.</li>
+<li data-check="s7-table">I made the table of 6,140 SNVs and 462 haplotypes.</li>
+<li data-check="s7-r2">I worked out r² between the repeat and every SNV, and found the two tags.</li>
+<li data-check="s7-fig">I made the figure of r² along the region.</li>
+<li data-check="s7-groups">I tested the tags in each continental group.</li>
+<li data-check="s7-odd">I found the exception and explained it.</li>
+<li data-check="s7-log">I wrote this stage up in my logbook.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s06"><small>Back</small>← Stage 6 · Who carries which allele</button><button class="next" type="button" data-goto="h-s08"><small>Next</small>Stage 8 · 3,202 short-read genomes →</button></div>

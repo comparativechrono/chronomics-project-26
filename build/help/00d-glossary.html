@@ -1,0 +1,54 @@
+<!-- id: h-glossary | title: Glossary | group: The project | stage: 0 | summary: The words of the project, from allele to VNTR | keys: glossary words terms definitions allele haplotype genotype phased pangenome vntr unit tag snp linkage disequilibrium r2 gwas beta standard error confidence interval p value eqtl reading frame codon missense synonymous fasta vcf gff bed grch37 grch38 rsid -->
+<h1>Glossary</h1>
+<p class="lede">The words of the project, in alphabetical order. The search box at the top of this pane finds them too.</p>
+<dl class="glossary">
+<dt>Allele</dt><dd>One version of a stretch of DNA. The repeat has a four-unit and a five-unit allele (and, inside each, the A and B types of stage 5); a SNP has two alleles, such as C and G.</dd>
+<dt>Allele frequency</dt><dd>The fraction of chromosomes in a group that carry an allele: 135 of 462 chromosomes is 0.29.</dd>
+<dt>Annotation</dt><dd>What is known about a stretch of genome – genes, exons, coding sequence – kept in a separate file (GFF3, BED) from the sequence.</dd>
+<dt>BED</dt><dd>A file format for regions: sequence, start, end, and optional name, score and strand. Starts count from 0 and the end is not included, so the length is end − start.</dd>
+<dt>BETA</dt><dd>In a GWAS, the change in the trait for each copy of the effect allele. For a yes/no trait, a log odds ratio (LOGOR).</dd>
+<dt>Bonferroni correction</dt><dd>Dividing the significance threshold by the number of tests (0.05 / 13 for 13 traits), so that the chance of any false positive stays about 0.05.</dd>
+<dt>Build (of a genome)</dt><dd>A version of the reference genome: GRCh37 (2009) and GRCh38 (2013) give the same places different coordinates. Always say which one a position is in.</dd>
+<dt>Chi-squared test</dt><dd>A test of whether counts in a table differ from what would be expected if there were no difference between the groups.</dd>
+<dt>Chronotype</dt><dd>Whether a person is naturally a "morning" or an "evening" type: when they prefer to sleep and are most alert.</dd>
+<dt>Codon</dt><dd>Three letters of coding DNA that stand for one amino acid (or a stop). The genetic code is the table of all 64.</dd>
+<dt>Concordance</dt><dd>The fraction of cases in which two methods give the same answer.</dd>
+<dt>Confidence interval (95%)</dt><dd>A range of values compatible with the data: computed this way, it contains the true value 95% of the time. Estimate ± 1.96 × standard error, for large samples.</dd>
+<dt>Data frame</dt><dd>R's table: named columns, one row per thing.</dd>
+<dt>dbSNP, rsID</dt><dd>The database of known variants, and the names it gives them (rs228701). rsIDs do not change between genome builds.</dd>
+<dt>E-box</dt><dd>The DNA motif <code>CACGTG</code>, where the clock proteins CLOCK and BMAL1 bind to switch genes on.</dd>
+<dt>Effect allele</dt><dd>The allele that a GWAS effect (BETA) belongs to: <code>ALLELE1</code> in the files of this project.</dd>
+<dt>eQTL</dt><dd>Expression quantitative trait locus: a variant associated with how much RNA of a gene is made. GTEx reports their normalised effect size (NES).</dd>
+<dt>Exon, intron</dt><dd>The parts of a gene kept in the mature RNA (exons) and the parts spliced out (introns).</dd>
+<dt>FASTA</dt><dd>A text format for sequences: a line starting with <code>&gt;</code> and a name, then the sequence.</dd>
+<dt>GFF3</dt><dd>A file format for annotation: nine tab-separated columns, with positions counted from 1, both ends included.</dd>
+<dt>Genotype</dt><dd>The two alleles a person carries at one place: 4/5, or <code>0|1</code> in a VCF file.</dd>
+<dt>GWAS</dt><dd>Genome-wide association study: tests millions of variants, one by one, for an association with a trait. Genome-wide significance is <i>P</i> &lt; 5 × 10<sup>−8</sup>.</dd>
+<dt>Haplotype</dt><dd>One copy of a stretch of chromosome – the alleles that sit together on it. Each person has two; the pangenome has 462 of this region.</dd>
+<dt>Hardy–Weinberg equilibrium</dt><dd>The genotype proportions expected from the allele frequency <i>p</i> when mating is random: (1 − <i>p</i>)², 2<i>p</i>(1 − <i>p</i>), <i>p</i>².</dd>
+<dt>Imputation</dt><dd>Filling in the genotypes a study did not measure, from those it did and a reference panel of haplotypes (such as the 1000 Genomes Project).</dd>
+<dt>k-mer</dt><dd>A word of <i>k</i> letters in a sequence; counting them finds what repeats.</dd>
+<dt>Linkage disequilibrium (LD)</dt><dd>Alleles of nearby variants occurring together on haplotypes more often than chance. Measured by r² (and D′).</dd>
+<dt>Long reads, short reads</dt><dd>Sequencing reads of thousands of letters (PacBio, Oxford Nanopore) or of 100–150 (Illumina). A repeat longer than a read cannot be read in one piece.</dd>
+<dt>MANE Select</dt><dd>The one transcript of each gene that the main databases agreed to use as standard; <i>PER3</i>'s is ENST00000377532.</dd>
+<dt>Missense, synonymous</dt><dd>A change of DNA in a codon that changes the amino acid (missense) or does not (synonymous).</dd>
+<dt>Pangenome</dt><dd>A reference made of many genomes – here the haplotypes of 231 people, as a graph – instead of one.</dd>
+<dt>Phased</dt><dd>Genotypes for which it is known which allele is on which haplotype: <code>0|1</code>, not <code>0/1</code>.</dd>
+<dt>PheWAS</dt><dd>Phenome-wide association study: one variant looked up in many traits.</dd>
+<dt>Phosphorylation</dt><dd>The addition of a phosphate group to an amino acid – serine, threonine or tyrosine – by a kinase. It controls the speed of the circadian clock.</dd>
+<dt>Power</dt><dd>The chance that a study detects an effect of a given size, if it is real.</dd>
+<dt><i>P</i> value</dt><dd>The chance of a result at least as extreme as the one seen, if there were no effect. It is not the chance that there is no effect.</dd>
+<dt>r²</dt><dd>The square of the correlation between two variables; for two variants, how well one predicts the other, from 0 to 1.</dd>
+<dt>Reading frame</dt><dd>One of the three ways to divide a sequence into codons.</dd>
+<dt>Reference genome</dt><dd>The standard sequence that others are compared with: GRCh38 here, and the complete CHM13.</dd>
+<dt>Regular expression</dt><dd>A pattern for text: <code>.</code> any letter, <code>[ST]</code> S or T, <code>{48}</code> 48 times, <code>$</code> the end.</dd>
+<dt>SNP, SNV</dt><dd>A single-nucleotide variant (SNV): one letter changed. A SNP is a common one.</dd>
+<dt>Standard error (SE)</dt><dd>How much an estimate would vary between samples of the same size.</dd>
+<dt>Strand</dt><dd>Which of the two strands of the DNA a gene is read from: + or −.</dd>
+<dt>Summary statistics</dt><dd>The results of a GWAS for every variant (effect allele, BETA, SE, <i>P</i>), without the data of individuals.</dd>
+<dt>Tag SNP</dt><dd>A SNP in strong LD with another variant, so that measuring it measures the other one too.</dd>
+<dt>Unit</dt><dd>One copy of the repeated sequence: 54 letters of DNA, 18 amino acids.</dd>
+<dt>VCF</dt><dd>Variant call format: a file of variants and genotypes (<a href="#h-vcf">VCF files and bcftools</a>).</dd>
+<dt>VNTR</dt><dd>Variable number tandem repeat: a sequence repeated head to tail, whose number of copies differs between chromosomes.</dd>
+</dl>
+<div class="stage-nav"><button type="button" data-goto="h-home"><small>Back</small>← Start here</button></div>

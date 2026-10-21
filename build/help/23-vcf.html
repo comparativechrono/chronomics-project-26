@@ -1,0 +1,80 @@
+<!-- id: h-vcf | title: VCF files and bcftools | group: Terminal and programs | summary: The VCF format, genotypes and phasing; bcftools view, query, annotate and consensus; filter expressions | keys: vcf bcf variant call format header info format genotype gt phased unphased multiallelic bgzip tabix index bcftools view query annotate consensus norm filter expression -i -e -r -s -m2 -M2 -v snps indels region samples rsid -->
+<h1>VCF files and bcftools</h1>
+<p class="lede">The variant call format (VCF) is how genome projects share the differences between genomes and a reference. <code>bcftools</code> reads, filters, reshapes and combines VCF files; with <code>bgzip</code> and <code>tabix</code> it keeps them compressed and indexed.</p>
+
+<h2>The format</h2>
+<p>A VCF file is text, with a <b>header</b> and one line per variant:</p>
+<pre class="code"><code>##fileformat=VCFv4.2
+##INFO=&lt;ID=AC,Number=A,Type=Integer,Description="Total number of alternate alleles in called genotypes"&gt;
+##FORMAT=&lt;ID=GT,Number=1,Type=String,Description="Genotype"&gt;
+#CHROM  POS      ID  REF  ALT  QUAL  FILTER  INFO          FORMAT  HG00097  HG00099
+chr1    7829744  .   C    G    60    .       AC=326;AN=462 GT      0|0      1|0</code></pre>
+<table>
+<tr><th>Column</th><th>Holds</th></tr>
+<tr><td><code>CHROM</code>, <code>POS</code></td><td>the sequence and the position of the first letter of REF, counted from 1</td></tr>
+<tr><td><code>ID</code></td><td>the variant's name (an rsID from dbSNP), or <code>.</code></td></tr>
+<tr><td><code>REF</code>, <code>ALT</code></td><td>the reference allele, and the other alleles separated by commas (a variant with several ALT alleles is <b>multi-allelic</b>). An insertion or deletion includes the letter before it: <code>TC</code> → <code>T</code> deletes a C.</td></tr>
+<tr><td><code>QUAL</code>, <code>FILTER</code></td><td>the quality of the call, and the filters it passed (<code>PASS</code>) or failed</td></tr>
+<tr><td><code>INFO</code></td><td><code>KEY=value</code> pairs about the variant, described in the header: <code>AC</code> allele counts, <code>AN</code> number of alleles, <code>AF</code> frequency …</td></tr>
+<tr><td><code>FORMAT</code>, samples</td><td>what each sample's column holds (<code>GT</code>, and often depth <code>DP</code>, quality <code>GQ</code> …), then one column per sample</td></tr>
+</table>
+<p><b>Genotypes</b>: <code>0</code> is REF, <code>1</code> the first ALT allele, <code>2</code> the second, <code>.</code> unknown. <code>0/1</code> is unphased (one of each, on unknown chromosomes); <code>0|1</code> is <b>phased</b>: REF on the first haplotype, ALT on the second. A haploid genotype has one allele (<code>1</code>).</p>
+<p>A VCF is usually compressed with <code>bgzip</code> (<code>.vcf.gz</code>) and indexed with <code>tabix -p vcf</code> or <code>bcftools index -t</code> (<code>.tbi</code>): the index lets programs jump to a region. BCF is a binary form of the same thing.</p>
+
+<h2>Look at a VCF</h2>
+<pre class="code" data-run="term"><code>V=/data/examples/per3/hprc/hprc_per3_vntr.vcf.gz
+bcftools view -h $V | tail -3 | cut -c 1-120       # the end of the header
+bcftools query -l $V | head -3                      # the samples
+bcftools view -H $V | cut -f 1-8 | head -3          # the variants, without the header
+bcftools view -H $V | wc -l                         # how many</code></pre>
+
+<h2><code>bcftools view</code>: choose variants and samples</h2>
+<table>
+<tr><th>Option</th><th>Keeps</th></tr>
+<tr><td><code>-r chr1:7829700-7830300</code></td><td>the variants that overlap a region (needs the index); <code>-R file.bed</code> the regions of a file</td></tr>
+<tr><td><code>-s HG00097,HG00099</code></td><td>these samples (<code>-S file</code>: the samples listed in a file; <code>^</code> before the list: all but these)</td></tr>
+<tr><td><code>-v snps</code>, <code>-v indels</code></td><td>only SNVs, or only insertions and deletions</td></tr>
+<tr><td><code>-m2 -M2</code></td><td>variants with exactly two alleles</td></tr>
+<tr><td><code>-i 'EXPRESSION'</code>, <code>-e 'EXPRESSION'</code></td><td>the variants for which the expression is true (<code>-i</code>), or false (<code>-e</code>)</td></tr>
+<tr><td><code>-Oz -o out.vcf.gz</code></td><td>(output) write a compressed VCF to a file; <code>-Ob</code> BCF; <code>-Ov</code> plain text</td></tr>
+</table>
+<pre class="code" data-run="term"><code>bcftools view -H -i 'AC &gt; 100' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | cut -f 1-5,8
+bcftools view -H -v indels /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | cut -f 1-5 | cut -c 1-80
+bcftools view -s HG00099 -r chr1:7829744 /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | tail -1</code></pre>
+<p>Expressions can use the columns (<code>POS</code>, <code>QUAL</code>, <code>ID</code>, <code>REF</code>, <code>ALT</code>), INFO fields (<code>AC</code>, <code>INFO/AF</code>), <code>TYPE="snp"</code>, and the genotypes (<code>GT="het"</code>, <code>GT="AA"</code>), joined with <code>&amp;&amp;</code> and <code>||</code>: <code>-i 'POS==7829744 || POS==7830204'</code>.</p>
+
+<h2><code>bcftools query</code>: turn a VCF into a table</h2>
+<p><code>-f</code> gives the layout: <code>%CHROM</code>, <code>%POS</code>, <code>%ID</code>, <code>%REF</code>, <code>%ALT</code>, <code>%QUAL</code>, <code>%INFO/AC</code> (or just <code>%AC</code>), <code>\t</code> a tab, <code>\n</code> a new line. What is in <code>[ ]</code> is repeated for each sample: <code>[%GT]</code>, <code>[%SAMPLE]</code>. <code>-H</code> adds a header line; <code>-l</code> lists the samples.</p>
+<pre class="code" data-run="term"><code>bcftools query -f '%POS\t%REF\t%ALT\t%AC\n' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | head -3
+bcftools query -r chr1:7829744 -f '[%SAMPLE\t%GT\n]' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | head -3
+bcftools query -r chr1:7829744 -f '[%GT\n]' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | tr '|' '\n' | sort | uniq -c</code></pre>
+<p>The last line counts alleles: it splits each phased genotype at its bar.</p>
+
+<h2><code>bcftools annotate</code>: add or remove information</h2>
+<pre class="code" data-run="term"><code>bcftools annotate -a /data/examples/per3/reference/dbsnp157_per3_500kb.vcf.gz -c ID -Oz -o ~/rsid.vcf.gz /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz
+bcftools view -H ~/rsid.vcf.gz | cut -f 1-5 | head -3
+bcftools annotate -x INFO -Oz -o ~/noinfo.vcf.gz ~/rsid.vcf.gz</code></pre>
+<p><code>-a</code> names a file to copy from, <code>-c</code> the columns to copy (here the ID, matched by position and alleles); <code>-x</code> removes fields (<code>-x INFO/AF</code>, <code>-x ID</code>, <code>-x INFO</code>).</p>
+
+<h2><code>bcftools consensus</code>: a sequence with the variants put in</h2>
+<p>Applies the variants of one sample's haplotype to a reference sequence. <code>-f</code> is the reference (FASTA), <code>-s</code> the sample, <code>-H 1</code> or <code>-H 2</code> the haplotype of a phased VCF. The reference can be a region cut out with <code>samtools faidx</code>, named <code>chr1:START-END</code>: only the variants in it are applied.</p>
+<pre class="code" data-run="term"><code>samtools faidx /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz chr1:7829701-7830300 &gt; ~/region.fa
+bcftools consensus -f ~/region.fa -s HG00099 -H 1 /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | seqtk comp | cut -f 1,2</code></pre>
+
+<h2>Other commands</h2>
+<ul>
+<li><code>bcftools norm -m -any</code> splits multi-allelic variants into one line per ALT allele (<code>-m +any</code> joins them); with <code>-f reference.fa</code> it also left-aligns indels.</li>
+<li><code>bcftools stats file.vcf.gz</code> counts variants by type, and more.</li>
+<li><code>bcftools isec</code> finds the variants two files share, or do not; <code>bcftools merge</code> joins the samples of several files; <code>bcftools concat</code> joins files of different regions.</li>
+<li><code>bcftools index -t file.vcf.gz</code> (or <code>tabix -p vcf</code>) makes the index.</li>
+<li>For genotypes of thousands of people, and association tests, see <a href="#h-plink2">PLINK 2</a>.</li>
+</ul>
+
+<h2>Traps</h2>
+<ul>
+<li><b>Chromosome names</b>: <code>chr1</code> in some files, <code>1</code> in others. A region that does not match the file's names finds nothing.</li>
+<li><b>The genome build</b>: positions in GRCh37 and GRCh38 differ. Check the header (<code>##reference</code>, <code>##contig</code> lengths), and join files from different builds by rsID, or lift the positions over.</li>
+<li><b>Overlapping variants</b>: <code>-r</code> returns every variant that <i>overlaps</i> the region, including a long deletion that starts before it; add <code>-i 'POS==…'</code> for the one that starts there.</li>
+<li><b>Missing genotypes</b> (<code>.</code>) are not REF. Count them, and decide what to do with them.</li>
+</ul>
+<!--CITE: bcftools htslib-->

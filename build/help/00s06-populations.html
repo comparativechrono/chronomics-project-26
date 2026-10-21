@@ -1,0 +1,108 @@
+<!-- id: h-s06 | title: Stage 6 · Who carries which allele | group: The project | stage: 6 | tab: yes | tabtitle: Stage 6 – Who carries which allele | summary: Allele frequencies in five continental groups and 29 populations; confidence intervals; chi-squared and Hardy–Weinberg tests | keys: stage 6 populations superpopulation continental frequency allele frequency merge join confidence interval standard error chi-squared chisq.test hardy-weinberg equilibrium hwe barplot error bars sample size hprc_samples.tsv -->
+<h1>Stage 6 · Who carries which allele</h1>
+<div class="stage-meta"><span class="when">Week 6</span><span>about 5 hours</span><span class="stage-progress"></span></div>
+<p class="lede">Is the five-repeat allele equally common everywhere? The 231 people come from 29 populations on five continents. Join your table of alleles to what is known about the people, count, test and plot – with confidence intervals, because 462 chromosomes are not many.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to join two tables by a column they share</li>
+<li>allele frequencies, their standard errors and 95% confidence intervals</li>
+<li>the chi-squared test of a table of counts, and the Hardy–Weinberg test</li>
+<li>a bar chart with error bars – the figure of most papers</li>
+</ul></div>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage06-populations|Stage 6 – Who carries which allele">Open my stage 6 notebook</button></div>
+
+<h2>1. The people</h2>
+<p><code>hprc_samples.tsv</code> has one row per person: their population (the codes of the 1000 Genomes Project, like <code>GBR</code> or <code>YRI</code>), its name, the <b>continental group</b> or superpopulation (AFR: Africa and the African diaspora; AMR: the Americas; EAS: East Asia; EUR: Europe; SAS: South Asia), and their sex.</p>
+<pre class="code" data-run="r"><code>samples &lt;- read.delim("/data/examples/per3/hprc/hprc_samples.tsv")
+head(samples)
+table(samples$superpopulation)
+sort(table(samples$population_name), decreasing = TRUE)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>AFR 70 people, AMR 44, EAS 51, EUR 30 and SAS 36. The largest populations are Gambians (17) and Japanese (16); several have only one person.</p></div>
+
+<h2>2. Join the tables</h2>
+<p>Your allele table (stage 5) has a column <code>sample</code>, and so does this one. <code>merge</code> joins them: each haplotype gets the information about its person.</p>
+<pre class="code" data-run="r"><code>alleles &lt;- read.delim("~/project/results/vntr_alleles.tsv")
+d &lt;- merge(alleles, samples, by = "sample")
+nrow(d)
+head(d[, c("haplotype", "repeats", "type", "population", "superpopulation")])</code></pre>
+<div class="callout think"><div class="co-t">Think</div><p>If a person were missing from <code>hprc_samples.tsv</code>, what would <code>merge</code> do with their haplotypes? How would you notice? (<code>?merge</code>, and the argument <code>all.x</code>.)</p></div>
+
+<h2>3. Frequencies by continental group</h2>
+<p>A table of continental group against units; then, row by row, the fraction of five-repeat alleles (<code>prop.table(tab, 1)</code>: each row adds up to 1).</p>
+<pre class="code" data-run="r"><code>tab &lt;- table(d$superpopulation, d$repeats)
+tab
+freq5 &lt;- prop.table(tab, 1)[, "5"]
+round(sort(freq5), 3)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>The five-repeat allele: AMR 0.182, EAS 0.225, SAS 0.306, EUR 0.367, AFR 0.371.</p></div>
+<p>How sure can you be of a frequency counted in 60 chromosomes (EUR)? If you had sampled 30 other Europeans, you would have got a somewhat different number. The <b>standard error</b> of a frequency <i>p</i> counted in <i>n</i> chromosomes is √(<i>p</i>(1 − <i>p</i>)/<i>n</i>), and about 95% of the time the true frequency lies within 1.96 standard errors of the estimate: the <b>95% confidence interval</b>.</p>
+<pre class="code" data-run="r"><code>n &lt;- rowSums(tab)
+se &lt;- sqrt(freq5 * (1 - freq5) / n)
+round(cbind(n, freq5, lower = freq5 - 1.96 * se, upper = freq5 + 1.96 * se), 3)</code></pre>
+<div class="task"><div class="task-t">Your turn: a figure with error bars</div>
+<p>Make a bar chart of <code>freq5</code> with the confidence intervals as error bars, and save it as <code>~/project/figures/fig_freq_superpop.png</code>. <code>barplot</code> gives back the positions of its bars; <code>arrows(x, y0, x, y1, angle = 90, code = 3, length = 0.05)</code> draws a bar from <code>y0</code> to <code>y1</code> with a flat end at each side. Write the number of chromosomes on each bar.</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="r"><code>png("~/project/figures/fig_freq_superpop.png", width = 1200, height = 900, res = 200)
+b &lt;- barplot(freq5, ylim = c(0, 0.6), ylab = "Frequency of the 5-repeat allele", col = "#4c72b0",
+             main = "The PER3 5-repeat allele in the HPRC (462 haplotypes)")
+arrows(b, freq5 - 1.96 * se, b, freq5 + 1.96 * se, angle = 90, code = 3, length = 0.05)
+text(b, 0.03, paste0("n=", n), col = "white", cex = 0.8)
+dev.off()</code></pre>
+<p>(Run the lines without <code>png</code> and <code>dev.off</code> to see the plot in the notebook.)</p></details></div>
+
+<h2>4. Is the difference real?</h2>
+<p>The frequencies differ – but with so few chromosomes, could that be chance? The <b>chi-squared test</b> asks how likely counts this uneven would be if the frequency were the same in every group.</p>
+<pre class="code" data-run="r"><code>chisq.test(tab)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>X-squared = 13.3 with 4 degrees of freedom, <i>P</i> = 0.0099.</p></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>What does <i>P</i> = 0.0099 mean, in words, and what does it not mean?</li>
+<li>Look at the confidence intervals: which groups clearly differ, and which could well have the same frequency?</li>
+<li>These are not random samples of their continents. How were the HPRC's people chosen (Liao et al. 2023)? Would you trust these numbers as "the frequency in Europe"? Stage 8 gives you 2,504 people to check them against.</li>
+</ul></div>
+
+<h2>5. Populations, and the types of allele</h2>
+<pre class="code" data-run="r"><code>tp &lt;- table(d$population, d$repeats)
+round(cbind(n = rowSums(tp), freq5 = prop.table(tp, 1)[, "5"]), 2)
+table(d$superpopulation, d$type)</code></pre>
+<div class="task"><div class="task-t">Your turn</div>
+<ol>
+<li>Which population has the lowest frequency of five-repeat alleles? How many chromosomes is that based on – would you report it?</li>
+<li>Look at the types of stage 5 by continental group. Is one type missing from some groups? What fraction of four-repeat alleles is 4B in each group? (Divide the 4B column by the sum of the 4A and 4B columns.)</li>
+</ol>
+<details class="hint answer"><summary>Show the answers</summary><p>1. The Peruvians (PEL): one five-repeat allele in 30 chromosomes (0.03). Mexicans (MXL) have none, but that is only 4 chromosomes. 2. 5B is not seen in EAS or SAS. 4B makes up about 13% of four-repeat alleles in AFR (11 of 86), 39% in AMR, 5% in EAS (4 of 79), 51% in EUR (19 of 37) and 46% in SAS:</p>
+<pre class="code" data-run="r"><code>ty &lt;- table(d$superpopulation, d$type)
+round(ty[, "4B"] / (ty[, "4A"] + ty[, "4B"]), 2)</code></pre></details></div>
+
+<h2>6. Hardy–Weinberg</h2>
+<p>If people choose their partners regardless of their <i>PER3</i> repeat, and nothing else interferes, the genotypes follow from the allele frequency <i>p</i> of the five-repeat allele: (1 − <i>p</i>)² are 4/4, 2<i>p</i>(1 − <i>p</i>) are 4/5 and <i>p</i>² are 5/5 – the <b>Hardy–Weinberg</b> proportions. Departures can mean selection, mixing of populations – or errors in the genotypes. Compare what you see with what you would expect:</p>
+<pre class="code" data-run="r"><code>g &lt;- tapply(d$repeats, d$sample, function(x) paste(sort(x), collapse = "/"))
+obs &lt;- table(factor(g, levels = c("4/4", "4/5", "5/5")))
+p5 &lt;- mean(d$repeats == 5)
+expected &lt;- sum(obs) * c((1 - p5)^2, 2 * p5 * (1 - p5), p5^2)
+rbind(observed = obs, expected = round(expected, 1))
+x2 &lt;- sum((obs - expected)^2 / expected)
+c(chi2 = x2, p = pchisq(x2, df = 1, lower.tail = FALSE))</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>Observed 113, 101 and 17; expected 115.7, 95.6 and 19.7. χ² = 0.75, <i>P</i> = 0.39: no sign of a departure.</p></div>
+<div class="callout think"><div class="co-t">Think</div><p>Here five groups with different frequencies were pooled. Pooling groups that differ makes too few heterozygotes (the <i>Wahlund effect</i>). Is that what you see? Why might it not show here? (Try the test within AFR alone.)</p></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>A table of frequencies with their confidence intervals, and your figure.</li>
+<li>The chi-squared and Hardy–Weinberg results, and what they mean.</li>
+<li>Compare your frequencies with those of Nadkarni et al. (2005), who typed the repeat in populations around the world. Do they agree, given the confidence intervals?</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Draw the figure with <code>ggplot2</code> (<code>library(ggplot2)</code>; <code>geom_col</code> and <code>geom_errorbar</code>) – <a href="#h-r">R</a> in the help shows how plots work in the notebook.</li>
+<li>The normal approximation of the confidence interval is poor for small counts. Compare it with an exact interval: <code>binom.test(16, 88)$conf.int</code> (16 of 88 AMR chromosomes).</li>
+</ul>
+<ul class="checklist">
+<li data-check="s6-merge">I joined my allele table to the information about the people.</li>
+<li data-check="s6-freq">I worked out the frequency of the five-repeat allele in each continental group, with a 95% confidence interval.</li>
+<li data-check="s6-fig">I made and saved the bar chart with error bars.</li>
+<li data-check="s6-chisq">I ran the chi-squared test and can say what its <i>P</i> means.</li>
+<li data-check="s6-types">I looked at the types of allele by group.</li>
+<li data-check="s6-hwe">I tested Hardy–Weinberg equilibrium.</li>
+<li data-check="s6-log">I wrote this stage up, and compared my numbers with Nadkarni et al. (2005).</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s05"><small>Back</small>← Stage 5 · What makes the alleles different</button><button class="next" type="button" data-goto="h-s07"><small>Next</small>Stage 7 · A SNP that travels with the repeat →</button></div>

@@ -1,0 +1,200 @@
+<!-- id: h-s10 | title: Stage 10 · The repeat in apes and monkeys | group: The project | stage: 10 | tab: yes | tabtitle: Stage 10 – The repeat in apes and monkeys | summary: Count the units of the repeat in 28 primate species from their genomes and proteins; place the counts on the primate tree; when did the human five-repeat allele arise? | keys: stage 10 primates apes monkeys evolution chimpanzee bonobo gorilla orangutan gibbon siamang macaque marmoset t2t ape genomes refseq protein reading frame three frames regexpr regular expression units per species tree phylogeny kalign fasttree alignment newick ancestral state -->
+<h1>Stage 10 · The repeat in apes and monkeys</h1>
+<div class="stage-meta"><span class="when">Week 10</span><span>about 6 hours</span><span class="stage-progress"></span></div>
+<p class="lede">Where did the repeat come from, and is the human five-repeat allele new? Count the units in the genomes of 27 other primates – among them the complete genomes of the apes, published in 2025 – and in the PER3 proteins of 53 species, and place the counts on the family tree of the primates.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to find a repeat in species whose DNA differs from ours: translating in three frames, and searching the protein</li>
+<li>to build a regular expression that tolerates differences</li>
+<li>a multiple alignment and a tree, with <code>kalign</code> and <code>FastTree</code></li>
+<li>to reason about evolution on a tree: what was the ancestor like, and what changed where?</li>
+</ul></div>
+
+<h2>1. The sequences</h2>
+<pre class="code" data-run="term"><code>cd ~/project
+cut -f 1-4 /data/examples/per3/primates/species.tsv | head -12
+grep "&gt;" /data/examples/per3/primates/PER3_repeat_exon_DNA.fa | head -5
+grep -c "&gt;" /data/examples/per3/primates/PER3_repeat_exon_DNA.fa /data/examples/per3/primates/PER3_proteins.fa</code></pre>
+<p><code>PER3_repeat_exon_DNA.fa</code> has the repeat's exon, with some sequence on each side, from 35 genomes of 28 primate species, found by searching each genome with the human exon (BLAST). For the apes there are two sequences each: the two haplotypes of their complete genomes (Yoo et al. 2025). <code>PER3_proteins.fa</code> has the PER3 protein of 53 species, primates and other mammals, from NCBI RefSeq.</p>
+<div class="callout check"><div class="co-t">Check</div><p>35 DNA sequences and 53 proteins.</p></div>
+<div class="callout think"><div class="co-t">Think</div><p>To count the units in human haplotypes you counted <code>CTGTCC</code>. Why might that fail in a macaque or a marmoset? What is more likely to be conserved between species: the DNA of the repeat or its protein? (Think of the genetic code.)</p></div>
+
+<h2>2. Find the repeat in the protein</h2>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage10-primates|Stage 10 – The repeat in apes and monkeys">Open my stage 10 notebook</button></div>
+<p>Read the DNA, and bring back your genetic code from stage 5. This version of <code>read_fasta</code> keeps only the first word of each name:</p>
+<pre class="code" data-run="r"><code>read_fasta &lt;- function(path) {
+  lines &lt;- readLines(path)
+  starts &lt;- grep("^&gt;", lines)
+  ends &lt;- c(starts[-1] - 1, length(lines))
+  seqs &lt;- mapply(function(s, e) paste(lines[(s + 1):e], collapse = ""), starts, ends)
+  names(seqs) &lt;- sub("^&gt;(\\S+).*", "\\1", lines[starts])
+  toupper(seqs)
+}
+bases &lt;- c("T", "C", "A", "G")
+codons &lt;- paste0(rep(bases, each = 16), rep(rep(bases, each = 4), 4), rep(bases, 16))
+code &lt;- setNames(strsplit("FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG", "")[[1]], codons)
+translate &lt;- function(dna) {
+  n &lt;- nchar(dna) %/% 3
+  paste(code[substring(dna, seq(1, by = 3, length.out = n), seq(3, by = 3, length.out = n))], collapse = "")
+}
+dna &lt;- read_fasta("/data/examples/per3/primates/PER3_repeat_exon_DNA.fa")
+length(dna)
+names(dna)[1:4]</code></pre>
+<p>A sequence can be read in three frames. Translate the human (GRCh38) sequence in all three, and find the frame with the repeat you know:</p>
+<pre class="code" data-run="r"><code>human &lt;- dna["Homo_sapiens|NC_000001.11|GRCh38"]
+frames &lt;- sapply(0:2, function(f) translate(substr(human, f + 1, nchar(human))))
+frames
+regexpr("LSTGSPPRENPSHPTASA", frames)</code></pre>
+<p>Now a macaque. Look at its three frames, find the one without stop codons (<code>*</code>) in the middle, and compare it with the human repeat:</p>
+<pre class="code" data-run="r"><code>macaque &lt;- dna["Macaca_mulatta|NC_133406.1|reference_assembly"]
+sapply(0:2, function(f) translate(substr(macaque, f + 1, nchar(macaque))))</code></pre>
+<div class="task"><div class="task-t">Your turn</div>
+<p>Write the human and macaque proteins of this region one under the other in your logbook, lined up. Where does the repeat start and end in each? Which stretches just before and just after the repeat are the same in both? How many units does the macaque have?</p></div>
+<p>The stretches on either side of the repeat are what you can search for in every species: just before the first unit, <code>…SPATTGA</code> (followed by the L that starts the first unit), and at the end of the last unit, <code>…GSAA</code> followed by <code>S</code>. Other species may have a slightly different letter here and there, so the pattern allows a choice at some places: <code>[SN]</code> means "S or N", and <code>[A-Z]{2}</code> "any two letters". This function finds the region between the two anchors in a protein:</p>
+<pre class="code" data-run="r"><code>repeat_region &lt;- function(p) {
+  start &lt;- regexpr("[SN]P[AT][AT]T[A-Z]{2}L", p)       # the stretch just before the repeat, and its first L
+  if (start &lt; 0) return(NA)
+  rest &lt;- substr(p, start + 7, nchar(p))                # from that L onwards
+  end &lt;- regexpr("GS[AS]AS", rest)                      # the end of the last unit
+  if (end &lt; 0) return(NA)
+  substr(rest, 1, end + 3)
+}
+repeat_region(frames[1])
+nchar(repeat_region(frames[1])) / 18</code></pre>
+<p>In which frame is the repeat? You do not need to know: try all three, and keep the one where the region is found.</p>
+<pre class="code" data-run="r"><code>count_units &lt;- function(s) {
+  frames &lt;- sapply(0:2, function(f) translate(substr(s, f + 1, nchar(s))))
+  regions &lt;- sapply(frames, repeat_region, USE.NAMES = FALSE)
+  best &lt;- which(!is.na(regions))[1]                     # the first frame in which the repeat is found
+  if (is.na(best)) return(c(frame = NA, aa = NA, units = NA, region = NA))
+  c(frame = best - 1, aa = nchar(regions[best]), units = round(nchar(regions[best]) / 18, 2), region = regions[best])
+}
+res &lt;- t(sapply(dna, count_units))
+res &lt;- data.frame(sequence = rownames(res), res, row.names = NULL)
+res$species &lt;- gsub("_", " ", sub("\\|.*", "", res$sequence))
+res[, c("species", "sequence", "aa", "units")]</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>Human: 90 amino acids, 5 units, in GRCh38 and in CHM13. Chimpanzee: 4 units on both haplotypes; bonobo: 3; gorilla: 4 on one haplotype and 3.61 on the other; orangutans: 3; the siamang 4 and the other two gibbons 3; all 14 Old World monkeys: 3. The New World monkeys: 2, 4 and even 7 (the marmoset).</p></div>
+<pre class="code" data-run="r"><code>species &lt;- read.delim("/data/examples/per3/primates/species.tsv")
+res$group &lt;- species$group[match(res$species, species$species)]
+aggregate(as.numeric(units) ~ group, res, function(x) paste(sort(unique(x)), collapse = " / "))
+write.table(res, "~/project/results/primate_units.tsv", sep = "\t", quote = FALSE, row.names = FALSE)</code></pre>
+<div class="task"><div class="task-t">Your turn</div>
+<p>One gorilla haplotype has 65 amino acids: 3.61 units. Look at its region (<code>res$region</code>) next to the other gorilla haplotype's and find what is missing. Is it a whole unit?</p></div>
+
+<h2>3. The proteins of 53 species</h2>
+<p>The RefSeq proteins add species without a complete genome here, and mammals that are not primates:</p>
+<pre class="code" data-run="r"><code>prot &lt;- read_fasta("/data/examples/per3/primates/PER3_proteins.fa")
+nchar(prot)[1:5]
+pr &lt;- sapply(prot, repeat_region)
+pd &lt;- data.frame(species = gsub("_", " ", sub("\\|.*", "", names(prot))), length = nchar(prot),
+                 units = round(nchar(pr) / 18, 2), row.names = NULL)
+pd$group &lt;- species$group[match(pd$species, species$species)]
+pd[order(pd$group, pd$units), ]</code></pre>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>The function finds no repeat (<code>NA</code>) in mouse, dog, cow, opossum and chicken – and in the tarsier and the lemurs. Does <code>NA</code> mean "no repeat", or "my anchors are not there"? How could you tell? (Section 4 is one way.)</li>
+<li>Look at the <code>length</code> column. Is every protein complete? What would a fragment do to your count?</li>
+<li>For the apes you have both the genome and the RefSeq protein. Do they agree?</li>
+</ul></div>
+
+<h2>4. An alignment and a tree</h2>
+<p>A <b>multiple alignment</b> lines up the proteins of all species, letter by letter, with gaps (<code>-</code>) where a species lacks letters others have. <code>kalign</code> makes one; the Files tab shows it in colour. Then <code>FastTree</code> builds a tree from it.</p>
+<pre class="code" data-run="term"><code>kalign -i /data/examples/per3/primates/PER3_proteins.fa -o results/PER3_proteins.afa
+FastTree results/PER3_proteins.afa &gt; results/PER3_proteins.nwk
+head -c 300 results/PER3_proteins.nwk</code></pre>
+<p>Open <code>results/PER3_proteins.afa</code> in the Files tab, and find the repeat region of the human protein (around position 980 of the human sequence; scroll sideways). What do the tarsier, the lemurs and the dog have there? Then open <code>results/PER3_proteins.nwk</code>: does the tree of the PER3 proteins group the species as you would expect?</p>
+<details class="hint answer"><summary>Show the answer</summary><p>Where the simians have their units, the tarsier, the lemurs and the dog have a single stretch that looks like one unit – the tarsier's <code>…ELSMVLLHKESPSGTGSAAS…</code>, for instance, next to the human last unit <code>LSTGSPPSESPSRTGSAA</code> – but the letters before it differ (<code>CPTASEL</code> rather than <code>SPATTGAL</code>), so the function's first anchor is not found. So <code>NA</code> here means one copy: the repeat – more than one copy of the unit – is found only in the simians, the monkeys and apes.</p></details>
+
+<h2>5. On the tree of the primates</h2>
+<figure class="guide-fig">
+<svg viewBox="0 0 600 355" role="img" aria-label="A tree of the primate groups with the number of PER3 repeat units of each">
+  <g stroke="#384355" stroke-width="2" fill="none">
+    <path d="M278 51 V84"/>
+    <path d="M278 51 H300"/>
+    <path d="M278 84 H300"/>
+    <path d="M276.6 18 V67.5"/>
+    <path d="M276.6 18 H300"/>
+    <path d="M276.6 67.5 H278"/>
+    <path d="M264.9 42.75 V117"/>
+    <path d="M264.9 42.75 H276.6"/>
+    <path d="M264.9 117 H300"/>
+    <path d="M241.5 79.875 V150"/>
+    <path d="M241.5 79.875 H264.9"/>
+    <path d="M241.5 150 H300"/>
+    <path d="M222 114.938 V183"/>
+    <path d="M222 114.938 H241.5"/>
+    <path d="M222 183 H300"/>
+    <path d="M186.9 148.969 V216"/>
+    <path d="M186.9 148.969 H222"/>
+    <path d="M186.9 216 H300"/>
+    <path d="M132.3 182.484 V249"/>
+    <path d="M132.3 182.484 H186.9"/>
+    <path d="M132.3 249 H300"/>
+    <path d="M66 215.742 V282"/>
+    <path d="M66 215.742 H132.3"/>
+    <path d="M66 282 H300"/>
+    <path d="M27 248.871 V315"/>
+    <path d="M27 248.871 H66"/>
+    <path d="M27 315 H300"/>
+    <path d="M4 281.936 H27"/>
+  </g>
+  <g font-size="16">
+    <text x="308" y="23"><tspan fill="#1f2937">human</tspan> <tspan fill="#b8480b" font-weight="700">4, 5</tspan></text>
+    <text x="308" y="56"><tspan fill="#1f2937">chimpanzee</tspan> <tspan fill="#b8480b" font-weight="700">4</tspan></text>
+    <text x="308" y="89"><tspan fill="#1f2937">bonobo</tspan> <tspan fill="#b8480b" font-weight="700">3</tspan></text>
+    <text x="308" y="122"><tspan fill="#1f2937">gorilla</tspan> <tspan fill="#b8480b" font-weight="700">4, 3.6</tspan></text>
+    <text x="308" y="155"><tspan fill="#1f2937">orangutans</tspan> <tspan fill="#b8480b" font-weight="700">3</tspan></text>
+    <text x="308" y="188"><tspan fill="#1f2937">gibbons</tspan> <tspan fill="#b8480b" font-weight="700">3 (siamang 4)</tspan></text>
+    <text x="308" y="221"><tspan fill="#1f2937">Old World monkeys</tspan> <tspan fill="#b8480b" font-weight="700">3 (14 species)</tspan></text>
+    <text x="308" y="254"><tspan fill="#1f2937">New World monkeys</tspan> <tspan fill="#b8480b" font-weight="700">2, 4, 7</tspan></text>
+    <text x="308" y="287"><tspan fill="#1f2937">tarsier</tspan> <tspan fill="#b8480b" font-weight="700">none found</tspan></text>
+    <text x="308" y="320"><tspan fill="#1f2937">lemurs, lorises</tspan> <tspan fill="#b8480b" font-weight="700">none found</tspan></text>
+  </g>
+  <g font-size="13" fill="#647086">
+    <text x="280.6" y="58">6</text>
+    <text x="268.9" y="95">9</text>
+    <text x="245.5" y="130">15</text>
+    <text x="226" y="164">20</text>
+    <text x="190.9" y="197">29</text>
+    <text x="136.3" y="231">43</text>
+    <text x="70" y="264">60</text>
+    <text x="31" y="297">70</text>
+    <text x="4" y="349">at the branch points: millions of years ago, roughly</text>
+  </g>
+</svg>
+<figcaption>The groups of primates in this stage, with the number of units found in their genomes or proteins (orange), and roughly when each pair of groups shared their last common ancestor, in millions of years (the branches are drawn to that rough scale; check the dates at timetree.org). Human: 4 or 5 in the HPRC, 5 in GRCh38 and CHM13.</figcaption>
+</figure>
+<div class="task"><div class="task-t">Your turn: tell the story</div>
+<ol>
+<li>How many units did the last common ancestor of the Old World monkeys and the apes most likely have? Why?</li>
+<li>Where on the tree did the number of units go up? Did it happen once, or several times? (There is more than one answer; find the one with the fewest changes.)</li>
+<li>When, at the earliest and at the latest, did the human five-repeat allele arise? And the four-repeat allele that most humans carry – is it the same as the chimpanzee's four?</li>
+</ol>
+<details class="hint"><summary>Show a hint</summary><p>For question 3, compare the units themselves, not only their number: cut the chimpanzee's region into 18-letter pieces (<code>substring(region, seq(1, 72, 18), seq(18, 72, 18))</code>) and line them up with the human ones of stage 5.</p></details></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>You have one or two genomes per species. The human repeat has two common alleles, and the gorilla's two haplotypes differ. What would you need to say that a species has 3 units?</li>
+<li>A repeat that changes length this often in evolution – is it more likely to be under strong constraint, or free to vary? What does that suggest about the effect of one unit more or less on PER3's function?</li>
+</ul></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>The method: why you searched the protein, the anchors, and the three frames.</li>
+<li>A table of units by species, and the tree with the counts on it.</li>
+<li>Your story of the repeat's evolution, and how sure you are of each part of it. Compare it with Sabino et al. (2014).</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Name the ape units after the human ones (your <code>name_unit</code> of stage 5, on the protein units – or on the DNA, cut where each unit starts). Which human units does the chimpanzee have?</li>
+<li>Count the serines and threonines in the repeat region of each species. Does the number of possible phosphorylation sites follow the number of units?</li>
+<li>Draw the tree of the PER3 proteins in R: <code>library(ape)</code>, <code>plot(read.tree("~/project/results/PER3_proteins.nwk"))</code>.</li>
+</ul>
+<ul class="checklist">
+<li data-check="s10-frames">I translated the DNA in three frames and found the repeat in the human and macaque proteins.</li>
+<li data-check="s10-count">I counted the units in 35 primate genomes.</li>
+<li data-check="s10-proteins">I counted them in the RefSeq proteins of 53 species, and thought about what <code>NA</code> means.</li>
+<li data-check="s10-tree">I made an alignment and a tree, and looked at them in the Files tab.</li>
+<li data-check="s10-story">I put the counts on the tree and wrote the story of the repeat.</li>
+<li data-check="s10-log">I wrote this stage up in my logbook.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s09"><small>Back</small>← Stage 9 · Does the repeat change sleep?</button><button class="next" type="button" data-goto="h-s11"><small>Next</small>Stage 11 · Write it up →</button></div>

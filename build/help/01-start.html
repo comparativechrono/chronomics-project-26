@@ -1,0 +1,34 @@
+<!-- id: h-start | title: A first session with the tools | group: Start here | summary: Fifteen minutes: every tab of the workbench once, with the project's data | keys: tour tutorial begin getting started first steps introduction tabs terminal notebook files genome browser databases 3d viewer ide ai -->
+<h1><!--ICON:play-->A first session with the tools</h1>
+<p class="lede">Fifteen minutes to see every tab of the workbench once, with the project's own data. Each step has a button that does it for you – but type the commands too.</p>
+
+<h2>1 · The terminal</h2>
+<p>The <b>Terminal</b> tab is a Linux shell (bash) with real bioinformatics programs, running in this page. The project's data are in <code>/data/examples/per3</code>:</p>
+<pre class="code" data-run="term"><code>ls /data/examples/per3
+ls /data/examples/per3/hprc
+head -3 /data/examples/per3/hprc/hprc_samples.tsv</code></pre>
+<p>Type <code>help</code> for the list of programs, and <code>man samtools</code> for one of them. Stage 1 of the guide starts here.</p>
+
+<h2>2 · A notebook</h2>
+<p>The <b>Notebook</b> tab opens with <code>start-here.ipynb</code>, an R notebook. Click into its first grey cell and press <kbd>Shift</kbd>+<kbd>Enter</kbd>: the code runs, its output appears below, and the next cell is selected. R starts in the background; the first run waits for it, a few seconds.</p>
+<div class="tryrow"><button class="do" type="button" data-open-nb="~/notebooks/start-here.ipynb">Open the start-here notebook</button></div>
+
+<h2>3 · Your files</h2>
+<p>Your own files live in your home folder, <code>~</code> (<code>/home/user</code>). The terminal, the notebooks and the <b>Files</b> tab all see the same files: what a command writes, a notebook can read a moment later.</p>
+<pre class="code" data-run="term"><code>mkdir -p ~/first &amp;&amp; cd ~/first
+cut -f 2,4 /data/examples/per3/hprc/hprc_samples.tsv | sort | uniq -c | sort -rn &gt; populations.txt
+head populations.txt</code></pre>
+<div class="tryrow"><button class="do" type="button" data-open="~/first/populations.txt">Open populations.txt in Files</button></div>
+
+<h2>4 · The other tabs</h2>
+<ul>
+  <li><b>Genome browser</b> – the genome, genes and variants. <button class="do" type="button" data-igv="chr1:7,780,000-7,856,000">PER3 in the genome browser</button> (<a href="#h-genome">Genome browser</a>)</li>
+  <li><b>Databases</b> – Ensembl, NCBI, UniProt, InterPro, AlphaFold, UCSC, BLAST and Europe PMC, with forms; each search can go into a notebook as code. <button class="do" type="button" data-api="uniprot:P56645">PER3 in UniProt</button> (<a href="#h-databases">Databases</a>)</li>
+  <li><b>3D viewer</b> – protein structures from the PDB or AlphaFold. <button class="do" type="button" data-cmd="load af P56645">PER3 as AlphaFold predicts it</button> – coloured by AlphaFold's confidence: orange means "not confident", typical of the long floppy parts of proteins. (<a href="#h-viewer">3D viewer</a>)</li>
+  <li><b>IDE</b> – RStudio for R and Spyder for Python, for when a script suits the job better than a notebook. (<a href="#h-ide">The IDE tab</a>)</li>
+  <li><b>AI</b> – a chat and an agent, with a model and a key of your choice. It can be wrong: check what it says, and say in your report if you used it. (<a href="#h-ai">AI assistant</a>)</li>
+</ul>
+
+<h2>5 · Keep your work</h2>
+<p>Everything you make is kept in this browser on this computer. <b>My files</b> (top right) downloads all your files as a <code>.zip</code>; do it once a week. <a href="#h-recipe-keep">Keep your work</a> has the details.</p>
+<div class="stage-nav"><button type="button" data-goto="h-home"><small>Back</small>← Start here</button><button class="next" type="button" data-goto="h-s01"><small>Next</small>Stage 1 · The terminal and the genome →</button></div>

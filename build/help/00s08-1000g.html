@@ -1,0 +1,104 @@
+<!-- id: h-s08 | title: Stage 8 · 3,202 short-read genomes | group: The project | stage: 8 | tab: yes | tabtitle: Stage 8 – 3,202 short-read genomes | summary: Check the tag SNP in the 1000 Genomes Project against the long reads; map the repeat in 26 populations; what short reads saw of the repeat | keys: stage 8 1000 genomes 1kgp short reads high coverage phased panel concordance tag rs228701 frequency populations 26 unrelated 2504 deletion 54 short read callers types haplotype rules -->
+<h1>Stage 8 · 3,202 short-read genomes</h1>
+<div class="stage-meta"><span class="when">Week 8</span><span>about 5 hours</span><span class="stage-progress"></span></div>
+<p class="lede">The 1000 Genomes Project sequenced 3,202 people with short reads – ten times as many as the pangenome, from 26 populations. Short reads cannot read the repeat, but they can read your tag. Check that the tag says the same as the long reads for the people in both projects, use it to map the repeat across 26 populations, and see what the short reads made of the repeat itself.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to check a method against a <b>truth set</b>: concordance</li>
+<li>to summarise a table by groups with <code>aggregate</code></li>
+<li>what short-read sequencing can and cannot see</li>
+</ul></div>
+
+<h2>1. The tag in the 1000 Genomes Project</h2>
+<p><code>1kgp_per3_gene.vcf.gz</code> holds the phased variants of the 3,202 people of the high-coverage 1000 Genomes Project across <i>PER3</i>, from chr1:7,780,000 to 7,850,000. Its IDs are written <code>chromosome:position:REF:ALT</code>. Find your tag, and save everyone's genotype at it:</p>
+<pre class="code" data-run="term"><code>cd ~/project
+bcftools query -l /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz | wc -l
+bcftools view -H /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz | wc -l
+bcftools query -r chr1:7829744 -f '%POS\t%ID\t%REF\t%ALT\n' /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz
+bcftools query -r chr1:7829744 -f '[%SAMPLE\t%GT\n]' /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz &gt; results/1kgp_rs228701.tsv
+head -3 results/1kgp_rs228701.tsv</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>3,202 people and 1,775 variants. rs228701 is <code>1:7829744:C:G</code>: C/G, as in the pangenome. HG00096 is <code>1|1</code>.</p></div>
+
+<h2>2. Does the tag agree with the long reads?</h2>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage08-1000g|Stage 8 – 3,202 short-read genomes">Open my stage 8 notebook</button></div>
+<p>From the genotype, predict how many five-repeat alleles each person has: the G allele goes with four units (stage 7), so a person with <code>0|0</code> (C, C) should be 5/5 and have two, and so on. <code>strsplit</code> cuts each genotype at the bar.</p>
+<pre class="code" data-run="r"><code>kg &lt;- read.delim("~/project/results/1kgp_rs228701.tsv", header = FALSE, col.names = c("sample", "gt"))
+kg$G &lt;- sapply(strsplit(kg$gt, "|", fixed = TRUE), function(a) sum(as.integer(a)))   # copies of G
+kg$n5 &lt;- 2 - kg$G                                       # predicted copies of the five-repeat allele
+table(kg$n5)</code></pre>
+<p>Many of the HPRC's people were chosen from the 1000 Genomes Project, so they are in both: for them, the long reads are a <b>truth set</b> to check the prediction against. Count each person's five-repeat alleles in your allele table with <code>aggregate</code> (it applies a function to a column, group by group), and join:</p>
+<pre class="code" data-run="r"><code>alleles &lt;- read.delim("~/project/results/vntr_alleles.tsv")
+hprc &lt;- aggregate(repeats ~ sample, alleles, function(r) sum(r == 5))
+names(hprc)[2] &lt;- "hprc_n5"
+both &lt;- merge(hprc, kg, by = "sample")
+nrow(both)
+table(long_reads = both$hprc_n5, tag_in_short_reads = both$n5)
+mean(both$hprc_n5 == both$n5)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>222 people are in both. The tag predicts the long-read genotype of 221 of them: a <b>concordance of 99.5%</b>.</p></div>
+<div class="task"><div class="task-t">Your turn</div>
+<p>Who is the one person whose genotypes disagree? Have you met them before?</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="r"><code>both[both$hprc_n5 != both$n5, ]</code></pre>
+<p>HG02257: the person whose second haplotype carries the rare four-repeat allele on a five-repeat background (stages 5 and 7). The tag says 5/5; the long reads say 4/5. The short reads agree with the long reads at the tag – it is the tag that cannot see this allele.</p></details></div>
+
+<h2>3. The repeat in 26 populations</h2>
+<p>Now use the tag where there are no long reads. Take the 2,504 unrelated people of the original project (the others are their parents and children, who would be counted twice), and work out the frequency of the five-repeat allele in each population: the number of five-repeat alleles divided by twice the number of people.</p>
+<pre class="code" data-run="r"><code>info &lt;- read.delim("/data/examples/per3/1000g/1kgp_samples.tsv")
+kg &lt;- merge(kg, info, by = "sample")
+un &lt;- kg[kg$unrelated_2504 == "yes", ]
+nrow(un)
+f &lt;- aggregate(n5 ~ population + superpopulation + population_name, un, function(x) sum(x) / (2 * length(x)))
+names(f)[4] &lt;- "freq5"
+f$n &lt;- as.vector(table(un$population)[f$population])
+f &lt;- f[order(f$superpopulation, f$freq5), ]
+f
+aggregate(n5 ~ superpopulation, un, function(x) round(sum(x) / (2 * length(x)), 3))</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>2,504 people. The five-repeat allele: AFR 0.374, AMR 0.256, EAS 0.148, EUR 0.335, SAS 0.349 – from 0.081 in the Chinese Dai (CDX) to 0.403 in the Gambians (GWD).</p></div>
+<div class="task"><div class="task-t">Your turn: a figure of 26 populations</div>
+<p>Make a bar chart of <code>f$freq5</code> with the population codes under the bars (<code>names.arg = f$population, las = 2</code>), coloured by continental group, with a legend, and save it as <code>figures/fig_freq_1000g.png</code>.</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="r"><code>cols &lt;- c(AFR = "#d55e00", AMR = "#cc79a7", EAS = "#009e73", EUR = "#0072b2", SAS = "#e69f00")
+png("~/project/figures/fig_freq_1000g.png", width = 1800, height = 900, res = 200)
+par(mar = c(5, 4, 3, 1))
+barplot(f$freq5, names.arg = f$population, las = 2, col = cols[f$superpopulation], ylim = c(0, 0.5),
+        ylab = "Frequency of the 5-repeat allele", main = "The PER3 VNTR in 26 populations (via rs228701)")
+legend("topleft", fill = cols, legend = names(cols), bty = "n", ncol = 5, cex = 0.8)
+dev.off()
+write.table(f, "~/project/results/freq5_1000g_populations.tsv", sep = "\t", quote = FALSE, row.names = FALSE)</code></pre></details></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>Compare these frequencies with your HPRC frequencies of stage 6 (for example EAS: 0.225 there, 0.148 here). Which do you trust more, and why? Do the confidence intervals of stage 6 include the 1000 Genomes values?</li>
+<li>Within a continent, the populations differ too: look at the Americas. The people of the AMR populations have mixed African, European and Native American ancestry, in different proportions. How could that explain the Peruvians (PEL) and the Puerto Ricans (PUR)?</li>
+</ul></div>
+
+<h2>4. What did the short reads see of the repeat?</h2>
+<p>The four-repeat allele is a 54-letter deletion against the GRCh38 reference, on 70% of chromosomes. Is it in the 1000 Genomes VCF? Look for variants near the repeat whose REF is long:</p>
+<pre class="code" data-run="term"><code>bcftools query -r chr1:7829001-7831000 -f '%POS\t%REF\t%ALT\n' /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz | awk 'length($2) &gt; 10'
+bcftools query -r chr1:7830003 -i 'POS==7830003' -f '[%GT\n]' /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz | tr '|' '\n' | sort | uniq -c</code></pre>
+<p>(<code>-i 'POS==7830003'</code> keeps only the variant that starts there: <code>-r</code> alone would also give the other deletion, which overlaps the position.)</p>
+<div class="callout check"><div class="co-t">Check</div><p>There are two long deletions, of 53 and 54 letters, inside the repeat. The 54-letter one is carried by <b>13</b> of 6,404 chromosomes (0.2%) – while the tag says about 70% of chromosomes have four units.</p></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>The common four-repeat allele is, in effect, missing from this VCF – yet the SNVs around it are there, and phased. Short reads here were 150 letters long; the repeat is 216 or 270. Draw, in your logbook, reads from a four-repeat chromosome lined up against the five-repeat reference. Where can the computer place a read that falls entirely inside the repeat? What does a read that spans the deletion look like?</li>
+<li>So what would a genome-wide study that uses this panel to fill in missing genotypes (<i>imputation</i>) know about the repeat? What does it know about rs228701?</li>
+</ul></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>The concordance between the tag and the long reads, and the one exception.</li>
+<li>The frequencies in 26 populations, with your figure: a map of the repeat drawn from ten times as many people as the pangenome.</li>
+<li>What the short reads saw of the repeat, and why.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li><b>The four types, worldwide.</b> In the pangenome, two more SNVs mark the types of stage 5: the G allele of the SNV at 7,830,004 is on 5A alleles, and the C allele of the SNV at 7,830,057 on 4B alleles. Write the rules (four-repeat by rs228701, then A or B by the other SNV), check in your HPRC haplotypes how often they give the right type, and apply them to the phased haplotypes of the 1000 Genomes Project (<code>bcftools query -i 'POS==7829744 || POS==7830004 || POS==7830057' -f '%POS[\t%GT]\n'</code>). Which type is commonest in each continent? (One answer: in East Asia, about 80% of chromosomes are 4A, and 5B is not seen at all.)</li>
+<li>Read the 1000 Genomes paper (Byrska-Bishop et al. 2022): which methods did they use to call structural variants, and which kinds did they find hard?</li>
+</ul>
+<ul class="checklist">
+<li data-check="s8-tag">I saved the genotypes of 3,202 people at rs228701.</li>
+<li data-check="s8-concord">I measured the concordance with the long reads, and explained the exception.</li>
+<li data-check="s8-freq">I worked out the frequency of the five-repeat allele in 26 populations, and made the figure.</li>
+<li data-check="s8-short">I looked for the repeat in the short-read VCF, and can explain what I found.</li>
+<li data-check="s8-log">I wrote this stage up in my logbook.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s07"><small>Back</small>← Stage 7 · A SNP that travels with the repeat</button><button class="next" type="button" data-goto="h-s09"><small>Next</small>Stage 9 · Does the repeat change sleep? →</button></div>

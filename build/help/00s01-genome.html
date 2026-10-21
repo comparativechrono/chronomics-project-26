@@ -1,0 +1,129 @@
+<!-- id: h-s01 | title: Stage 1 · The terminal and the genome | group: The project | stage: 1 | tab: yes | tabtitle: Stage 1 – The terminal and the genome | summary: Commands, files and folders; FASTA, GFF3 and BED files; find PER3 in the human genome and look at it | keys: stage 1 terminal shell bash commands pwd ls cd mkdir path folder fasta fai index samtools faidx gff gff3 bed coordinates 0-based 1-based exon gene per3 strand awk cut grep head genome browser igv ensembl rest api curl jq uniprot -->
+<h1>Stage 1 · The terminal and the genome</h1>
+<div class="stage-meta"><span class="when">Weeks 1–2</span><span>about 5 hours</span><span class="stage-progress"></span></div>
+<p class="lede">Before you can study a repeat in hundreds of genomes, you need to be able to find your way around one. In this stage you learn to give the computer instructions by typing them, and use them to find <i>PER3</i> in the human genome: where it is, how it is built, what lies around it – and what it looks like in a genome browser.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>the terminal: commands, options and arguments; files, folders and paths</li>
+<li>to look into big files without opening them: <code>head</code>, <code>grep</code>, <code>cut</code>, <code>sort</code>, <code>uniq</code>, <code>wc</code>, <code>awk</code> – and to join them with pipes, <code>|</code></li>
+<li>the three file formats of a genome: FASTA (the sequence), GFF3 and BED (where the genes are) – and their coordinates</li>
+<li><code>samtools faidx</code>, to cut any stretch out of a genome</li>
+<li>a genome browser, and a database you ask from the terminal</li>
+</ul></div>
+
+<h2>1. Your first commands</h2>
+<p>The <b>Terminal</b> tab on the right is a Linux terminal, the way most bioinformatics is done. The line that ends in <code>$</code> is the <b>prompt</b>: the computer is waiting for a command. Type one and press <kbd>Enter</kbd>. Type these four yourself – one at a time – rather than using the button:</p>
+<pre class="code" data-run="term"><code>pwd
+ls /data/examples/per3
+ls -l /data/examples/per3/reference
+ls -lh /data/examples/per3/reference</code></pre>
+<ul>
+<li><code>pwd</code> – <i>print working directory</i>: the folder you are in. It is your <b>home</b> folder, <code>/home/user</code>, which can also be written <code>~</code>.</li>
+<li><code>ls</code> – <i>list</i> the files in a folder. <code>/data/examples/per3</code> is the folder of the project's data (you can read it but not change it).</li>
+<li><code>-l</code> is an <b>option</b>: it makes <code>ls</code> show a long list, with the size and date of each file. <code>-lh</code> shows the sizes in human units (K, M). Options change what a command does; <b>arguments</b> (here the folder) tell it what to work on.</li>
+</ul>
+<p>Three things save a lot of typing: <kbd>Tab</kbd> completes the name of a file or a command (type <code>ls /data/ex</code> and press <kbd>Tab</kbd>); <kbd>↑</kbd> brings back the commands you typed before; and <code>man ls</code> (or <code>ls --help</code>) explains a command and all its options. <code>help</code> lists the programs of this terminal.</p>
+
+<h3>Your project folder</h3>
+<p>Keep everything you make in one place. Make a folder, <code>project</code>, with three folders in it – for results, figures and scripts – and go into it:</p>
+<pre class="code" data-run="term"><code>mkdir -p ~/project/results ~/project/figures ~/project/scripts
+cd ~/project
+ls
+pwd</code></pre>
+<p><code>mkdir</code> makes folders (<code>-p</code>: with any folders above them, and no complaint if they exist already); <code>cd</code> – <i>change directory</i> – moves you into one. A <b>path</b> says where a file is: <code>/data/examples/per3/hprc</code> starts at the top of the file system (an <b>absolute</b> path); <code>results/exon19.fa</code> starts from where you are (a <b>relative</b> path); <code>~</code> is your home; <code>..</code> is the folder above.</p>
+<div class="callout check"><div class="co-t">Check</div><p><code>pwd</code> prints <code>/home/user/project</code>, and <code>ls</code> shows <code>figures</code>, <code>results</code> and <code>scripts</code>. The <b>Files</b> tab shows the same folders: it is another view of the same files.</p></div>
+<div class="task"><div class="task-t">Your turn</div>
+<p>Without using the mouse: go to <code>/data/examples/per3/hprc</code>, list it, go back to your home folder, and then into <code>project</code> again. (<code>cd</code> with nothing after it goes home; <code>cd -</code> goes back to where you were.)</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="term"><code>cd /data/examples/per3/hprc
+ls
+cd
+cd project
+pwd</code></pre></details></div>
+
+<h2>2. A genome is a text file</h2>
+<p>A genome sequence is kept in a <b>FASTA</b> file: a line that starts with <code>&gt;</code> and names the sequence, then the sequence itself, a few dozen letters to a line. The project has the first 8.1 million letters of chromosome 1 of the human reference genome, <b>GRCh38</b> – the stretch with <i>PER3</i> in it. The file is compressed (<code>.gz</code>); <code>zcat</code> uncompresses it on the fly, and the <b>pipe</b>, <code>|</code>, sends its output to <code>head</code>, which keeps the first lines:</p>
+<pre class="code" data-run="term"><code>zcat /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz | head -3</code></pre>
+<p>Ns stand for letters that are not known. The very tip of the chromosome, its <b>telomere</b>, is a long run of repeats that GRCh38 (released in 2013) leaves as a gap of Ns, as it does for a few other stretches that could not be pieced together; the first complete, telomere-to-telomere human genome, CHM13, filled them in 2022. To see real DNA, cut out a piece from the middle with <code>samtools faidx</code> – <i>sam tools, fasta index</i>. Positions are written <code>chromosome:start-end</code>, counting from 1:</p>
+<pre class="code" data-run="term"><code>samtools faidx /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz chr1:7829834-7830161</code></pre>
+<p>This works without reading the whole file because the genome has an <b>index</b>, the <code>.fai</code> file next to it. Look at it:</p>
+<pre class="code" data-run="term"><code>cat /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz.fai</code></pre>
+<p>Its five columns: the name of the sequence, its <b>length</b>, where in the file the sequence starts, the letters per line and the bytes per line (one more, for the end of the line). With these, a program can jump straight to any position.</p>
+<p><code>seqtk comp</code> counts the letters of every sequence in a FASTA file: its columns are the name, the length, and the numbers of A, C, G and T (then other counts; <code>man seqtk</code> lists them all):</p>
+<pre class="code" data-run="term"><code>seqtk comp /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>The length is <b>8,100,000</b>, of which 1,922,830 are A, 2,039,186 C, 2,028,773 G and 1,905,702 T. The rest – 203,509 letters – are N.</p></div>
+<div class="task"><div class="task-t">Your turn</div>
+<p>What fraction of the bases that are not N are G or C – the <b>GC content</b>? <code>awk</code> can do the sum: in <code>awk '{print ($4 + $5) / ($3 + $4 + $5 + $6)}'</code>, <code>$3</code> means the third column. Send the output of <code>seqtk comp</code> into it with a pipe. Then do the same for <i>PER3</i> alone, chr1:7784183-7845181 (<code>samtools faidx</code> into <code>seqtk comp</code>, then <code>awk</code>). Is the gene richer or poorer in GC than the region as a whole?</p>
+<details class="hint"><summary>Show a hint</summary><p>Three programs joined by two pipes: <code>samtools faidx … chr1:7784183-7845181 | seqtk comp | awk '…'</code>. When you give <code>seqtk</code> no file name, it reads what comes through the pipe.</p></details>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="term"><code>seqtk comp /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz | awk '{print ($4 + $5) / ($3 + $4 + $5 + $6)}'
+samtools faidx /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz chr1:7784183-7845181 | seqtk comp | awk '{print ($4 + $5) / ($3 + $4 + $5 + $6)}'</code></pre>
+<p>About 0.515 for the region and 0.406 for <i>PER3</i>. The tip of chromosome 1 is unusually rich in GC – the human genome as a whole is about 41% GC – and <i>PER3</i>, most of which is introns, is poorer in GC than its surroundings.</p></details></div>
+
+<h2>3. Where are the genes?</h2>
+<p>A sequence says nothing about where the genes are; that is kept in an <b>annotation</b> file. <code>genes_GRCh38.gff3</code> lists the seven protein-coding genes of chr1:7.4–8.1 Mb, with the exons and coding sequence (CDS) of one transcript each – the <b>MANE Select</b> transcript, the one that the clinical and research databases have agreed to use. Look at the start of it (<code>cut -c 1-150</code> cuts each line to its first 150 characters, so that the long lines fit):</p>
+<pre class="code" data-run="term"><code>head -6 /data/examples/per3/reference/genes_GRCh38.gff3 | cut -c 1-150</code></pre>
+<p>A <b>GFF3</b> file has nine columns separated by tabs: the sequence, the source, the <b>type</b> of feature (gene, mRNA, exon, CDS), its <b>start</b> and <b>end</b> (counted from 1, both included), a score, the <b>strand</b> (<code>+</code> or <code>-</code>: which of the two strands of DNA the gene is read from), the reading frame, and a column of <code>name=value</code> attributes separated by <code>;</code>.</p>
+<p><code>awk</code> is the tool for columns. This line keeps the rows whose third column is <code>gene</code> and prints the start, end, strand and the second attribute (the name):</p>
+<pre class="code" data-run="term"><code>awk -F'\t' '$3 == "gene" {split($9, a, ";"); print $4, $5, $7, a[2]}' /data/examples/per3/reference/genes_GRCh38.gff3</code></pre>
+<p><code>-F'\t'</code> says the columns are separated by tabs; <code>$3 == "gene"</code> is the condition; what is between <code>{ }</code> is done for each row that meets it.</p>
+<div class="callout check"><div class="co-t">Check</div><p><i>PER3</i> runs from <b>7,784,183 to 7,845,181</b> on the <b>+</b> strand. Its neighbours are <i>VAMP3</i> just before it and <i>UTS2</i> after it.</p></div>
+<div class="task"><div class="task-t">Your turn</div>
+<ol>
+<li>How long is <i>PER3</i>? (<code>echo $((7845181 - 7784183 + 1))</code> does sums in the terminal. Why <code>+ 1</code>?)</li>
+<li>Look at <i>UTS2</i>'s start and end. What do you notice about it and <i>PER3</i>? On which strand is it? (<i>UTS2</i> makes urotensin II, a peptide hormone that constricts blood vessels.)</li>
+<li><code>grep -w "Name=PER3"</code> finds the lines of the file that mention <i>PER3</i> by name. Send them through <code>cut -f 3,4,5,9 | cut -c 1-100</code> to see the gene and its transcript. Which transcript is it (its <code>ENST</code> number)? How many exons does it have (<code>grep</code> its ENST number, then <code>grep -c -w exon</code> counts the lines with the word <i>exon</i>)?</li>
+</ol>
+<details class="hint answer"><summary>Show the answers</summary>
+<p>1. 60,999 bases: both ends are included, so the length is end − start + 1. 2. <i>UTS2</i> (7,843,008–7,853,512) overlaps the last 2,174 bases of <i>PER3</i>. It is on the <b>−</b> strand, so the two genes are read in opposite directions from opposite strands of the same DNA, and their 3′ ends overlap. 3. The transcript is <b>ENST00000377532</b> (PER3-202), with 22 exons:</p>
+<pre class="code" data-run="term"><code>grep -w "Name=PER3" /data/examples/per3/reference/genes_GRCh38.gff3 | cut -f 3,4,5,9 | cut -c 1-100
+grep "ENST00000377532" /data/examples/per3/reference/genes_GRCh38.gff3 | grep -c -w exon</code></pre></details></div>
+
+<h3>The exons, and a trap: BED files count from 0</h3>
+<p><code>PER3_exons.bed</code> lists the exons of that transcript, one per line, in the <b>BED</b> format: sequence, start, end, name, score, strand.</p>
+<pre class="code" data-run="term"><code>cat /data/examples/per3/reference/PER3_exons.bed</code></pre>
+<p>Find exon 19 in it, and compare its start with the position you gave <code>samtools faidx</code> above (7,829,834). They differ by one. BED files count from <b>0</b> and do not include the end: the first base of a chromosome is 0, and a feature from 0 to 10 has the bases 0–9. GFF3, VCF files, genome browsers and <code>samtools</code> count from <b>1</b> and include both ends. Both say the same thing; mixing them up – being <b>off by one</b> – is the commonest slip in genomics. A good thing about BED: the length is simply end − start.</p>
+<pre class="code" data-run="term"><code>awk '{print $4, $3 - $2}' /data/examples/per3/reference/PER3_exons.bed
+awk '{s = s + $3 - $2} END {print s}' /data/examples/per3/reference/PER3_exons.bed</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p><i>PER3</i>'s transcript has <b>22 exons</b>. Exon 19 is <b>328 bases</b> long (in 1-based positions, 7,829,834–7,830,161). Together the exons have 6,365 bases – about a tenth of the gene; the rest is <b>introns</b>, which are spliced out of the RNA.</p></div>
+<div class="callout think"><div class="co-t">Think</div><p>328 is not a multiple of 3. How can an exon in the middle of a gene not hold a whole number of codons? (Hint: what happens to the codon that is cut by an intron when the RNA is spliced?)</p></div>
+
+<h2>4. Look at it</h2>
+<p>The <b>Genome browser</b> tab draws the same files. It opens on the project's piece of GRCh38, with <i>PER3</i>'s exons. Go to the whole gene, then to exon 19:</p>
+<div class="tryrow"><button class="do" type="button" data-igv="chr1:7,780,000-7,856,000">The whole of PER3 and UTS2</button> <button class="do" type="button" data-igv="chr1:7,829,834-7,830,161">Exon 19</button></div>
+<ul>
+<li>Exons are boxes, introns are lines; the little arrows on the lines show the direction in which the gene is read. Find <i>UTS2</i> at the right: which way do its arrows point?</li>
+<li>Type a position or a gene name in the box at the top, or drag sideways to move; <kbd>+</kbd> and <kbd>−</kbd> zoom. Zoom into exon 19 until you can read its letters.</li>
+<li>You can open it from the terminal too: <code>igv --locus chr1:7,829,834-7,830,161</code> (<a href="#h-genome">Genome browser</a> has more).</li>
+</ul>
+
+<h2>5. Ask a database</h2>
+<p>Everything you have found so far came from files someone gave you. Check it against the source. <b>Ensembl</b> is one of the big databases of genomes and genes; it answers questions over the internet – a <b>REST API</b> – and replies in <b>JSON</b>, a text format of <code>"name": value</code> pairs. <code>curl</code> fetches the reply, and <code>jq</code> picks the parts you want:</p>
+<pre class="code" data-run="term"><code>curl -s "https://rest.ensembl.org/lookup/symbol/homo_sapiens/PER3?content-type=application/json" | jq '.id, .start, .end, .strand, .description'</code></pre>
+<p>Then look at <i>PER3</i>'s gene and protein in the <b>Databases</b> tab, where the same databases have forms to fill in:</p>
+<div class="tryrow"><button class="do" type="button" data-api="ensembl:gene:PER3">PER3 in Ensembl</button> <button class="do" type="button" data-api="uniprot:P56645">The PER3 protein in UniProt</button></div>
+<div class="callout check"><div class="co-t">Check</div><p>Ensembl gives the same start, end and strand as the GFF3 file (<code>1</code> means the + strand), and the gene's Ensembl ID, <b>ENSG00000049246</b>. In UniProt the human PER3 protein is <b>P56645</b>, 1,201 amino acids long.</p></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>The commands you learned, each with one line saying what it does – your own cheat sheet.</li>
+<li><i>PER3</i>: where it is (chromosome, positions, strand, build GRCh38), how long it is, how many exons, its neighbours, its IDs (ENSG…, ENST…, P56645).</li>
+<li>What UniProt says PER3 does, and where in the body it is made.</li>
+<li>One thing that confused you, for your next meeting.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li><b>Clock boxes.</b> CLOCK and BMAL1 switch genes on by binding the E-box, <code>CACGTG</code> (see <a href="#h-science">The science</a>). Count the E-boxes in the 5,000 bases before <i>PER3</i>'s start: <code>samtools faidx … chr1:7779183-7784182 | grep -v "&gt;" | tr -d '\n' | grep -o CACGTG | wc -l</code>. Where are they (<code>grep -ob</code>)? How many would you expect in 5,000 bases by chance? (Count them in the whole 8.1 Mb the same way and scale it.)</li>
+<li>Read <a href="#h-terminal">The terminal</a> and <a href="#h-text">Working with text files</a> in the help: a few more commands go a long way.</li>
+</ul>
+<ul class="checklist">
+<li data-check="s1-folders">I made <code>~/project</code> with its three folders, and I can move around with <code>cd</code>, <code>ls</code> and <code>pwd</code>.</li>
+<li data-check="s1-fasta">I can explain what a FASTA file and its <code>.fai</code> index are, and cut out a region with <code>samtools faidx</code>.</li>
+<li data-check="s1-gc">I worked out the GC content of the region and of <i>PER3</i>.</li>
+<li data-check="s1-gff">I found <i>PER3</i>, its strand, its neighbours and its transcript in the GFF3 file.</li>
+<li data-check="s1-bed">I can explain why exon 19 starts at 7,829,833 in the BED file and at 7,829,834 everywhere else.</li>
+<li data-check="s1-igv">I looked at <i>PER3</i> and exon 19 in the genome browser.</li>
+<li data-check="s1-db">I checked <i>PER3</i>'s position in Ensembl, and read its UniProt entry.</li>
+<li data-check="s1-log">I wrote this stage up in my logbook.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-home"><small>Back</small>← Start here</button><button class="next" type="button" data-goto="h-s02"><small>Next</small>Stage 2 · Find the repeat →</button></div>

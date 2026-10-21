@@ -1,0 +1,98 @@
+<!-- id: h-s11 | title: Stage 11 · Write it up | group: The project | stage: 11 | tab: yes | tabtitle: Stage 11 – Write it up | summary: Figures, methods, results and discussion; versions and citations; making the whole analysis repeatable with scripts; keeping your work | keys: stage 11 write up report thesis dissertation figures methods results discussion abstract introduction references citations versions reproducible repeatable script run_all.sh rscript readme poster presentation download -->
+<h1>Stage 11 · Write it up</h1>
+<div class="stage-meta"><span class="when">Weeks 11–12</span><span>as long as it takes</span><span class="stage-progress"></span></div>
+<p class="lede">You have results nobody had before you. Now make them into a report that someone else can read, check and repeat: a story with figures, methods precise enough to follow, and an analysis that runs again from start to finish with one command.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to turn notebooks and commands into scripts that rebuild every result</li>
+<li>to record the versions of programs and data, and cite them</li>
+<li>to plan figures, and write methods, results and discussion</li>
+</ul></div>
+<div class="callout warn"><div class="co-t">First</div><p>Ask your supervisor what the report must look like: its length, its sections, the style of references, the deadline – and whether a poster or a talk goes with it. Then plan backwards from the deadline.</p></div>
+
+<h2>1. The story and the figures</h2>
+<p>Before you write sentences, decide what the reader should learn, in order, and which figure shows each step. A typical set:</p>
+<table>
+<tr><th>Figure</th><th>Shows</th><th>From</th></tr>
+<tr><td>1</td><td>The gene, the exon and the repeat; the units of the four kinds of allele, and their proteins</td><td>stages 2 and 5 (draw it, in R or by hand)</td></tr>
+<tr><td>2</td><td>The frequency of the five-repeat allele by continental group (HPRC) and in 26 populations (1000 Genomes)</td><td>stages 6 and 8</td></tr>
+<tr><td>3</td><td>r² between the repeat and the SNVs around it; the tag</td><td>stage 7</td></tr>
+<tr><td>4</td><td>The regional plot of chronotype, coloured by r² with the repeat; the effects of the tag on sleep traits</td><td>stage 9</td></tr>
+<tr><td>5</td><td>The number of units on the primate tree</td><td>stage 10</td></tr>
+</table>
+<p>Each figure needs a title, labelled axes with units, a legend, and a caption that says what is shown, how many people or haplotypes, and what the reader should notice. Tables are better than figures for a few exact numbers (the concordance, the PheWAS).</p>
+
+<h2>2. Methods: what, with what, in what order</h2>
+<p>Write the methods so that someone else could repeat your analysis. Name every data set (with its version or release, and the build of the genome: GRCh38 or GRCh37), every program (with its version) and every step. Get the versions:</p>
+<pre class="code" data-run="term"><code>samtools --version | head -1
+bcftools --version | head -1
+seqtk 2&gt;&amp;1 | grep -i version
+kalign --version 2&gt;&amp;1 | head -3
+FastTree 2&gt;&amp;1 | head -1
+Rscript -e 'R.version.string'</code></pre>
+<p>Cite the data and the programs: <a href="#h-data">The project data</a> lists the papers for the data, and <a href="#h-programs">Programs and versions</a> for the programs. If you used the AI assistant, say what for.</p>
+
+<h2>3. Make it repeatable</h2>
+<p>Your results came from commands typed in a terminal and cells run in notebooks, over weeks. Could you get exactly the same numbers again? The way to be sure is to put every step in <b>scripts</b> and run them, from nothing, in one go.</p>
+<ol>
+<li>For each stage, copy the commands that made your results (from your logbook, or <code>history</code> in the terminal) into a shell script in <code>~/project/scripts</code> – for example <code>stage3_haplotypes.sh</code>. Only the commands that matter, in order, with a comment above each.</li>
+<li>Turn each notebook into an R script: in the Files tab, make a new file (the <b>+</b> button) such as <code>~/project/scripts/stage5_structure.R</code>, and copy the notebook's code cells into it, in order. (The notebook's <b>Download</b> button also gives you its code as an R script, on your computer.) Every script must read its inputs from files and write its outputs to files – nothing may depend on what happened to be in memory. Save figures with <code>png()</code> and <code>dev.off()</code>. Test each script on its own in the terminal: <code>Rscript scripts/stage5_structure.R</code>.</li>
+<li>Write one script that runs all the others, in order:</li>
+</ol>
+<pre class="code"><code>#!/bin/bash
+# run_all.sh – rebuild every result of the PER3 VNTR project from the data in /data/examples/per3
+set -e                        # stop at the first error
+cd ~/project
+bash scripts/stage2_repeat.sh
+bash scripts/stage3_haplotypes.sh
+bash scripts/stage4_counts.sh
+Rscript scripts/stage5_structure.R
+Rscript scripts/stage6_populations.R
+bash scripts/stage7_snv_table.sh
+Rscript scripts/stage7_ld.R
+bash scripts/stage8_1000g.sh
+Rscript scripts/stage8_1000g.R
+Rscript scripts/stage9_gwas.R
+Rscript scripts/stage10_primates.R</code></pre>
+<ol start="4">
+<li>Test it: move your results away (<code>mv results results_old; mv figures figures_old; mkdir results figures</code>), run <code>bash scripts/run_all.sh</code>, and compare the new results with the old (<code>diff results/vntr_alleles.tsv results_old/vntr_alleles.tsv</code> says nothing if they are identical). Fix whatever breaks – there will be something – until it runs from start to end.</li>
+<li>Write <code>~/project/README.md</code>: what the project is, what is in each folder, and how to run <code>run_all.sh</code>.</li>
+</ol>
+<div class="callout think"><div class="co-t">Why bother?</div><p>Because you will find a mistake in stage 4 the week before the deadline, and with <code>run_all.sh</code> you fix one line and everything after it is right again – the figures too. And because a result that cannot be repeated is not yet a result.</p></div>
+
+<h2>4. Results: numbers with their uncertainty</h2>
+<p>Report what you found, in the order of the figures, with the numbers that matter and their uncertainty: frequencies with confidence intervals, r² with the number of haplotypes, effects with their 95% confidence intervals and <i>P</i> values. Keep interpretation for the discussion. A checklist of the results you have:</p>
+<ul>
+<li>The alleles of the repeat: how many units, how many haplotypes, the four kinds and what distinguishes them; the changes to the protein.</li>
+<li>Their frequencies, by group and population, in the HPRC and in the 1000 Genomes Project; Hardy–Weinberg.</li>
+<li>The tag SNPs, their r² overall and by group, the concordance in 222 people, and the exception.</li>
+<li>What short reads saw of the repeat.</li>
+<li>The tag in the GWAS of chronotype and sleep; the confidence interval and power; the real signal at <i>PER3</i>; gene expression.</li>
+<li>The repeat in the primates.</li>
+</ul>
+
+<h2>5. Discussion</h2>
+<p>Questions to answer in your own words – there are no answers here, and your supervisor will want to discuss them with you:</p>
+<ul>
+<li>What do your results say about the claims of the small studies (chronotype, sleep homeostasis, delayed sleep phase)? What can they <i>not</i> say? (What was measured in UK Biobank, and in whom? What did Viola et al. measure?)</li>
+<li>The four-repeat alleles are not all alike. What does the 4B branch mean for studies of "4/4 versus 5/5"?</li>
+<li>How much would you trust the pangenome's sequences of a repeat? The tag? The approximation of section 4 of stage 9?</li>
+<li>What did the primates tell you about the repeat, and about how important its exact length is likely to be?</li>
+<li>What would you do next, with more time, data or money? (Individual data of UK Biobank; long-read genomes of people with known chronotype; the repeat in mice …)</li>
+</ul>
+
+<h2>6. Keep it</h2>
+<ul>
+<li><b>My files → Download all my files</b> gives you a zip of everything: your project folder, notebooks and logbook. Keep it somewhere safe – and keep the logbook with it.</li>
+<li>If your supervisor agrees, put the scripts, the README and the figures in a repository on GitHub: it is the usual way to share an analysis, and a good thing to show when you apply for your next position.</li>
+</ul>
+<ul class="checklist">
+<li data-check="s11-plan">I agreed the form of the report and the deadline with my supervisor.</li>
+<li data-check="s11-figs">My figures have titles, axes, legends and captions.</li>
+<li data-check="s11-versions">My methods name every data set, build and program with its version.</li>
+<li data-check="s11-scripts">Every stage is a script in <code>~/project/scripts</code>.</li>
+<li data-check="s11-runall"><code>run_all.sh</code> rebuilds every result from nothing, and the results are the same.</li>
+<li data-check="s11-readme">I wrote <code>~/project/README.md</code>.</li>
+<li data-check="s11-report">I wrote the report: introduction, methods, results, discussion, references.</li>
+<li data-check="s11-keep">I downloaded all my files and keep them safe.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s10"><small>Back</small>← Stage 10 · The repeat in apes and monkeys</button><button class="next" type="button" data-goto="h-home"><small>Back to</small>Start here →</button></div>

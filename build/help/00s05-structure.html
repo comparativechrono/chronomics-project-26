@@ -1,0 +1,134 @@
+<!-- id: h-s05 | title: Stage 5 · What makes the alleles different | group: The project | stage: 5 | tab: yes | tabtitle: Stage 5 – What makes the alleles different | summary: Cut every allele into its units, name each unit after the reference unit it matches, translate them: four kinds of allele, and their proteins | keys: stage 5 structure units r1 r2 r3 r4 r5 allele types 4a 4b 5a 5b function strings substr gregexpr strsplit sapply translate genetic code synonymous missense vntr_alleles.tsv read_fasta -->
+<h1>Stage 5 · What makes the alleles different</h1>
+<div class="stage-meta"><span class="when">Week 5</span><span>about 6 hours</span><span class="stage-progress"></span></div>
+<p class="lede">Four units or five – but is every four-repeat allele the same? Studies of the repeat have nearly always treated it as two alleles, because that is all a PCR gel can show. With the whole sequence you can do better: cut every allele into its units, find which of the reference's units each one is, and translate them. The repeat turns out to have more than two kinds of allele.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to write your own functions in R</li>
+<li>to work with text in R: <code>substr</code>, <code>gregexpr</code>, <code>strsplit</code>, <code>paste</code></li>
+<li>to apply a function to every item of a list with <code>sapply</code></li>
+<li>the genetic code as a lookup table, and the difference between a synonymous and a missense change</li>
+</ul></div>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage05-structure|Stage 5 – What makes the alleles different">Open my stage 5 notebook</button></div>
+
+<h2>1. A function that reads FASTA files</h2>
+<p>R has no built-in reader for FASTA files, so write one. A <b>function</b> is a recipe with a name: <code>function(path) { … }</code> takes a value, <code>path</code>, does the steps between the braces, and gives back the value of the last line. Read this one line by line before you run it:</p>
+<pre class="code" data-run="r"><code>read_fasta &lt;- function(path) {
+  lines &lt;- readLines(path)                         # every line of the file
+  starts &lt;- grep("^&gt;", lines)                      # the numbers of the lines that start with &gt;
+  ends &lt;- c(starts[-1] - 1, length(lines))         # each sequence ends just before the next name
+  seqs &lt;- mapply(function(s, e) paste(lines[(s + 1):e], collapse = ""), starts, ends)
+  names(seqs) &lt;- sub("^&gt;", "", lines[starts])       # name each sequence, without the &gt;
+  toupper(seqs)                                    # in capital letters
+}
+ref &lt;- read_fasta("~/project/results/ref_region.fa")
+nchar(ref)
+haps &lt;- read_fasta("~/project/results/haplotypes.fa")
+length(haps)
+head(nchar(haps))</code></pre>
+<p><code>mapply</code> runs a small function on each pair of start and end, and <code>paste(…, collapse = "")</code> glues the lines of a sequence together. The result is a <b>named vector</b>: 462 sequences, each with the name of its haplotype (<code>haps["HG00099_hap1"]</code>).</p>
+<div class="callout check"><div class="co-t">Check</div><p><code>ref</code> is 600 letters long and <code>haps</code> holds 462 sequences, the first ones 600, 546, 546 …</p></div>
+
+<h2>2. Cut a sequence into its units</h2>
+<p><code>gregexpr</code> finds every match of a pattern in a text and gives their positions; <code>substr(s, p, p + 53)</code> takes the 54 letters from position <code>p</code>. Together, they cut a sequence into its units:</p>
+<pre class="code" data-run="r"><code>units_of &lt;- function(s) {
+  starts &lt;- gregexpr("CTGTCC", s)[[1]]
+  sapply(starts, function(p) substr(s, p, p + 53))
+}
+ref_units &lt;- units_of(ref)
+names(ref_units) &lt;- paste0("R", 1:5)
+ref_units
+identical(unname(ref_units), readLines("~/project/results/units_GRCh38.txt"))</code></pre>
+<p>The last line checks the function against the units you cut out with <code>grep</code> in stage 2. <code>TRUE</code>: the two methods agree.</p>
+
+<h2>3. Name every unit</h2>
+<p>Now the key idea. For each unit of each haplotype, ask: is it identical to one of the five units of GRCh38? If so, call it by that name (R1–R5). If not, find the reference unit it differs from least, and write down the differences: <code>R4*8C</code> means "like R4, but with a C at letter 8".</p>
+<pre class="code" data-run="r"><code>name_unit &lt;- function(u) {
+  same &lt;- which(ref_units == u)
+  if (length(same) == 1) return(names(ref_units)[same])
+  letters_u &lt;- strsplit(u, "")[[1]]                                   # the unit as single letters
+  d &lt;- sapply(ref_units, function(r) sum(strsplit(r, "")[[1]] != letters_u))   # differences from each
+  best &lt;- which.min(d)
+  diffs &lt;- which(strsplit(ref_units[best], "")[[1]] != letters_u)
+  paste0(names(ref_units)[best], "*", paste0(diffs, letters_u[diffs], collapse = ","))
+}
+name_unit(ref_units[4])
+name_unit(units_of(haps["HG00099_hap2"])[3])</code></pre>
+<div class="task"><div class="task-t">Your turn</div>
+<p>Write out in your logbook, step by step, what <code>name_unit</code> does with the third unit of HG00099's second haplotype. (Run its lines one at a time with <code>u &lt;- units_of(haps["HG00099_hap2"])[3]</code> to see each step.) What does <code>R3*9G</code> mean?</p></div>
+<p>Now name the units of every haplotype, and join each haplotype's names into its <b>structure</b>:</p>
+<pre class="code" data-run="r"><code>structure_of &lt;- sapply(haps, function(s) paste(sapply(units_of(s), name_unit), collapse = "-"))
+head(structure_of)
+sort(table(structure_of), decreasing = TRUE)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>Eight structures. Four are common: <code>R1-R3-R4-R5</code> (238 haplotypes), <code>R1-R2-R3*9G-R4-R5</code> (108), <code>R1-R3-R4*8C-R5</code> (85) and <code>R1-R2-R3-R4-R5</code> (26). Four others are seen once or twice.</p></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>Which unit is missing from nearly every four-repeat allele? In stage 2 you found which two units are most alike. Why might a unit be lost (or gained) between two units that are nearly identical? (Read about <i>replication slippage</i> and <i>unequal crossing over</i>.)</li>
+<li>The GRCh38 allele (<code>R1-R2-R3-R4-R5</code>) is the rarest of the four common ones. Does it matter that the reference genome carries a rare allele?</li>
+<li>Look at the rare structures. Which unit does <code>R1-R2-R4*8C,14C-R5</code> lack? What could that mean?</li>
+</ul></div>
+
+<h2>4. Four kinds of allele</h2>
+<p>Give the four common structures short names – the number of units, and A or B – and call the rest "other". A named vector works as a lookup table: <code>lookup[x]</code> gives the value whose name is <code>x</code>.</p>
+<pre class="code" data-run="r"><code>alleles &lt;- data.frame(haplotype = names(haps),
+                      sample = sub("_hap[12]$", "", names(haps)),
+                      repeats = sapply(haps, function(s) length(units_of(s))),
+                      structure = structure_of)
+lookup &lt;- c("R1-R3-R4-R5" = "4A", "R1-R3-R4*8C-R5" = "4B",
+            "R1-R2-R3*9G-R4-R5" = "5A", "R1-R2-R3-R4-R5" = "5B")
+alleles$type &lt;- lookup[alleles$structure]
+alleles$type[is.na(alleles$type)] &lt;- "other"
+table(alleles$type, alleles$repeats)
+write.table(alleles, "~/project/results/vntr_alleles.tsv", sep = "\t", quote = FALSE, row.names = FALSE)</code></pre>
+<p><code>vntr_alleles.tsv</code> is your main table from now on: one row per haplotype, with its person, units, structure and type. (<code>is.na</code> finds the structures that are not in the lookup table.)</p>
+<div class="callout check"><div class="co-t">Check</div><p>4A: 238, 4B: 85, 5A: 108, 5B: 26 and other: 5 (four with 4 units, one with 5).</p></div>
+
+<h2>5. What do they make?</h2>
+<p>Teach R the genetic code. The 64 codons, in the order of the table in stage 2 (first letter T, C, A, G; then the second; then the third), and their amino acids:</p>
+<pre class="code" data-run="r"><code>bases &lt;- c("T", "C", "A", "G")
+codons &lt;- paste0(rep(bases, each = 16), rep(rep(bases, each = 4), 4), rep(bases, 16))
+aa &lt;- strsplit("FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG", "")[[1]]
+code &lt;- setNames(aa, codons)
+head(code, 8)
+code["ATG"]
+
+translate &lt;- function(dna) {
+  n &lt;- nchar(dna) %/% 3                                   # the number of whole codons
+  cods &lt;- substring(dna, seq(1, by = 3, length.out = n), seq(3, by = 3, length.out = n))
+  paste(code[cods], collapse = "")
+}
+sapply(ref_units, translate)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>The same five protein units you found by hand and in UniProt in stage 2, from <code>LSTGSPPRENPSHPTASA</code> to <code>LSTGSPPSESPSRTGSAA</code>.</p></div>
+<p>Now the protein of one haplotype of each structure:</p>
+<pre class="code" data-run="r"><code>types &lt;- sort(table(structure_of), decreasing = TRUE)
+for (t in names(types)) {
+  one &lt;- names(structure_of)[structure_of == t][1]
+  cat(sprintf("%-24s %4d  %s\n", t, types[t], paste(sapply(units_of(haps[one]), translate), collapse = " ")))
+}</code></pre>
+<p>A <code>for</code> loop in R works like the one in the shell; <code>cat(sprintf(…))</code> prints a line laid out as you say (<code>%-24s</code>: text, 24 characters wide; <code>%4d</code>: a whole number).</p>
+<div class="task"><div class="task-t">Your turn: synonymous or missense?</div>
+<p>Compare the proteins of 5A and 5B, and of 4A and 4B. Do the A and B alleles make different proteins? For each difference in the DNA (<code>R3*9G</code>, <code>R4*8C</code>), work out which codon it falls in and what it does to it. Which change is <b>synonymous</b> (same amino acid) and which is <b>missense</b> (a different one)? What does the missense change add to the protein, given what you found about kinases in stage 2?</p>
+<details class="hint"><summary>Show a hint</summary><p>Letter 9 of a unit is the third letter of codon 3; letter 8 is the second letter of codon 3. Compare <code>translate(ref_units["R4"])</code> with <code>translate(units_of(haps[alleles$haplotype[alleles$type == "4B"][1]])[3])</code>.</p></details>
+<details class="hint answer"><summary>Show the answer</summary><p><code>R3*9G</code> changes codon 3 of R3 from ACA to ACG: both threonine, so 5A and 5B make the <b>same</b> protein. <code>R4*8C</code> changes codon 3 of R4 from ATG to ACG: methionine to <b>threonine</b> – a missense change that gives the 4B protein (<code>LSTGLPP…</code> in its third unit) one more threonine, a possible phosphorylation site, than the 4A protein. So the repeat makes three proteins, not two: five units, four units, and four units with an extra threonine.</p></details></div>
+<div class="callout science"><div class="co-t">Your finding</div><p>Most studies of the repeat have treated 4A and 4B as one allele, "4". If the A and B alleles differ in what they do – or in what else they carry with them – a study that lumps them together could miss an effect, or find one that belongs to a sub-type. Keep the types in mind: they come back in stage 9.</p></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>A table of the structures, their counts and their proteins, and what A and B mean.</li>
+<li>Which unit the four-repeat alleles lack, and your idea of why.</li>
+<li>The changes that are synonymous and missense. Compare your structures with the figure of the units in Ebisawa et al. (2001), who described the repeat's variation first: do their units match yours?</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Find the missense change in Ensembl: the SNV at chr1:7,830,057 (<code>T</code> → <code>C</code>) has an rsID. Look it up in the Databases tab (the Ensembl VEP card, or search Ensembl for the position). What does Ensembl call the change in the protein, and what do prediction tools (SIFT, PolyPhen) think of it?</li>
+<li>Turn the structures into a picture: one row per type, one coloured box per unit.</li>
+</ul>
+<ul class="checklist">
+<li data-check="s5-fasta">I wrote <code>read_fasta</code> and can explain each of its lines.</li>
+<li data-check="s5-units">I cut the sequences into units, and checked the function against stage 2.</li>
+<li data-check="s5-names">I named every unit and found the eight structures.</li>
+<li data-check="s5-types">I saved <code>results/vntr_alleles.tsv</code> with the four types.</li>
+<li data-check="s5-translate">I translated the units in R and found the synonymous and missense changes.</li>
+<li data-check="s5-log">I wrote this stage up in my logbook and in my notebook.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s04"><small>Back</small>← Stage 4 · Count the repeats</button><button class="next" type="button" data-goto="h-s06"><small>Next</small>Stage 6 · Who carries which allele →</button></div>

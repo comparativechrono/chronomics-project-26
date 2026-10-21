@@ -1,0 +1,127 @@
+<!-- id: h-s03 | title: Stage 3 · From a pangenome to 462 haplotypes | group: The project | stage: 3 | tab: yes | tabtitle: Stage 3 – From a pangenome to 462 haplotypes | summary: VCF files, genotypes and phasing; read the repeat in the pangenome; rebuild the 600 letters around it in every chromosome of 231 people | keys: stage 3 pangenome hprc human pangenome reference consortium long reads haplotype phased phasing vcf genotype gt allele ref alt ac an bcftools view query consensus loop for variable sed haplotypes.fa deletion -->
+<h1>Stage 3 · From a pangenome to 462 haplotypes</h1>
+<div class="stage-meta"><span class="when">Week 3</span><span>about 5 hours</span><span class="stage-progress"></span></div>
+<p class="lede">GRCh38 is one chromosome of one person at this spot. The Human Pangenome Reference Consortium has assembled both copies of chromosome 1 – both <b>haplotypes</b> – of 231 people from long reads. In this stage you learn the format their differences are shared in, find the repeat in it, and rebuild the 600 letters around the repeat in each of the 462 chromosomes.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>the VCF format: variants, alleles, genotypes, phasing</li>
+<li><code>bcftools</code>, the standard program for VCF files: <code>view</code>, <code>query</code>, <code>consensus</code></li>
+<li>the shell as a programming language: variables, loops and <code>$( )</code></li>
+<li>a habit: try a command on one case, then on three, then on all</li>
+</ul></div>
+
+<div class="callout science"><div class="co-t">A pangenome</div>
+<p>Each of us has two copies of chromosome 1, one from each parent. A reference genome is a single copy; a <b>pangenome</b> holds many. The HPRC sequenced each person with long reads (tens of thousands of letters each, long enough to span a repeat), assembled the two copies of every chromosome separately, and aligned all of them into one <b>graph</b>: where the copies agree, one path; where they differ, a <b>bubble</b> with a branch for each version. Every bubble, written down against GRCh38, becomes a line of a <b>VCF</b> file (Liao et al. 2023; Hickey et al. 2024 – see the <a href="#h-reading">reading list</a>). You have the 2,000 letters around the repeat: <code>hprc_per3_vntr.vcf.gz</code>.</p></div>
+
+<h2>1. A VCF file</h2>
+<p>A VCF (variant call format) file is a text file with a <b>header</b> – lines starting with <code>##</code> that say what the file holds, and one starting with <code>#CHROM</code> that names the columns – and then one line for each variant. It is compressed and indexed, and <code>bcftools</code> reads it. Look at the header:</p>
+<pre class="code" data-run="term"><code>cd ~/project
+bcftools view -h /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | head -8
+bcftools view -h /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | tail -1 | cut -f 1-12
+bcftools query -l /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | wc -l</code></pre>
+<p><code>bcftools query -l</code> lists the people (the <b>samples</b>), one column each after the ninth. Now the variants (<code>view -H</code>: without the header), their first eight columns:</p>
+<pre class="code" data-run="term"><code>bcftools view -H /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | wc -l
+bcftools view -H /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | cut -f 1-8 | head -5</code></pre>
+<table>
+<tr><th>Column</th><th>What it holds</th></tr>
+<tr><td><code>CHROM</code>, <code>POS</code></td><td>where the variant is (counting from 1)</td></tr>
+<tr><td><code>ID</code></td><td>its name, such as an rsID – here <code>.</code>: none (you will add them in stage 7)</td></tr>
+<tr><td><code>REF</code>, <code>ALT</code></td><td>the letters of the reference genome there, and the other versions – the <b>alleles</b> – separated by commas</td></tr>
+<tr><td><code>QUAL</code>, <code>FILTER</code></td><td>quality and filters (not used here)</td></tr>
+<tr><td><code>INFO</code></td><td>facts about the variant: <code>AC</code>, how many chromosomes carry each ALT allele; <code>AN</code>, how many chromosomes were counted</td></tr>
+<tr><td><code>FORMAT</code>, then one column per person</td><td>the <b>genotype</b> (<code>GT</code>) of each person</td></tr>
+</table>
+<p><code>bcftools query -f</code> prints the parts you name, in your own layout: <code>%POS</code> is the position, <code>\t</code> a tab, <code>\n</code> the end of a line.</p>
+<pre class="code" data-run="term"><code>bcftools query -f '%POS\t%REF\t%ALT\t%AC\n' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p><b>231</b> people and <b>26</b> variants. Most of them change one letter for another (an SNV: single-nucleotide variant); <code>AN=462</code> – two chromosomes per person.</p></div>
+<div class="task"><div class="task-t">Your turn: find the repeat</div>
+<p>One of the 26 lines is the repeat. Look at the lengths of the alleles: <code>awk 'length($2) &gt; 1'</code> keeps the lines whose second column (REF) is longer than one letter. Then look at that whole line with <code>bcftools view -H -r chr1:POSITION</code> (<code>-r</code>: only this region). How long is each allele? How do the ALT alleles differ from REF, and from each other? Which allele is a four-repeat allele?</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="term"><code>bcftools query -f '%POS\t%REF\t%ALT\t%AC\n' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | awk 'length($2) &gt; 1'
+bcftools view -H -r chr1:7829992 /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | cut -f 1-8</code></pre>
+<p>The repeat is the line at <b>7,829,992</b>. REF is 56 letters of the five-repeat reference. ALT 1 is the same 56 letters with one letter changed (an A to a G): it is still a five-repeat allele, a slightly different one. ALT 2 (<code>CA</code>) and ALT 3 (<code>CG</code>) are 2 letters: <b>54 letters</b> – one unit – are missing. They are four-repeat alleles. (The other long line, at 7,830,272, deletes one letter.)</p>
+<p>Where in a repeat a unit is "missing" cannot really be said: removing any 54 letters in a row from a run of near-identical units gives nearly the same result. The pangenome's graph had to choose one way to write it. That is why repeats are hard to describe – and to call from short reads.</p></details></div>
+
+<h2>2. Genotypes</h2>
+<p>A genotype like <code>2|1</code> says which allele each of the person's two chromosomes carries: <code>0</code> is REF, <code>1</code> the first ALT allele, <code>2</code> the second, and so on. The bar <code>|</code> means the genotype is <b>phased</b>: we know that the first allele is on one chromosome (haplotype 1) and the second on the other (haplotype 2). (A <code>/</code> would mean we only know the two alleles, not which chromosome each is on. Long reads and assembly make phasing easy.)</p>
+<pre class="code" data-run="term"><code>bcftools query -r chr1:7829992 -f '[%SAMPLE %GT\n]' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | head
+bcftools query -r chr1:7829992 -f '[%GT\n]' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | sort | uniq -c</code></pre>
+<div class="task"><div class="task-t">Your turn</div>
+<p>Count the <b>alleles</b> rather than the genotypes: break each genotype in two (<code>tr '|' '\n'</code> turns each bar into the end of a line) before you sort and count. How many of the 462 chromosomes carry four units, and how many five?</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="term"><code>bcftools query -r chr1:7829992 -f '[%GT\n]' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | tr '|' '\n' | sort | uniq -c</code></pre>
+<p>26 chromosomes carry REF (<code>0</code>) and 109 ALT 1 (<code>1</code>): <b>135</b> five-repeat alleles. 326 carry ALT 2 and one carries ALT 3: <b>327</b> four-repeat alleles. Compare the numbers with <code>AC</code> on the line.</p></details></div>
+<div class="callout check"><div class="co-t">Check</div><p>HG00099 is <code>2|1</code>: haplotype 1 has four units and haplotype 2 five. In all, 327 four-repeat and 135 five-repeat chromosomes.</p></div>
+
+<h2>3. Rebuild one haplotype</h2>
+<p>You could stop here: you have the number of units in every chromosome. But the VCF writes the repeat in a way chosen by a graph program, and it hides what the units of each allele look like. To study them you need the sequence itself. A VCF lists the <i>differences</i> from the reference; put a haplotype's differences into the reference and you have its sequence back. That is what <code>bcftools consensus</code> does. First, the 600 letters of GRCh38 around the repeat:</p>
+<pre class="code" data-run="term"><code>samtools faidx /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz chr1:7829701-7830300 &gt; results/ref_region.fa
+cat results/ref_region.fa</code></pre>
+<p>Then the two haplotypes of HG00099 – <code>-s</code> names the person, <code>-H</code> the haplotype (1 or 2):</p>
+<pre class="code" data-run="term"><code>bcftools consensus -f results/ref_region.fa -s HG00099 -H 1 /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz &gt; results/HG00099_hap1.fa
+bcftools consensus -f results/ref_region.fa -s HG00099 -H 2 /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz &gt; results/HG00099_hap2.fa
+cat results/HG00099_hap1.fa results/HG00099_hap2.fa | seqtk comp | cut -f 1,2
+grep -v "&gt;" results/HG00099_hap1.fa | tr -d "\n" | grep -o CTGTCC | wc -l</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>Haplotype 1 is <b>546</b> letters long with 4 copies of <code>CTGTCC</code>; haplotype 2 is <b>600</b> letters with 5. 600 − 546 = 54: one unit.</p></div>
+
+<h2>4. All 462: a loop</h2>
+<p>You could type that command 462 times. Instead, a <b>loop</b> does it for you. A loop repeats some commands once for each item of a list; each time, a <b>variable</b> holds the item, and <code>$</code> before its name gives its value. Try a small one first:</p>
+<pre class="code" data-run="term"><code>bcftools query -l /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz &gt; results/hprc_people.txt
+head -3 results/hprc_people.txt
+for s in $(head -3 results/hprc_people.txt); do
+  echo "person $s"
+done</code></pre>
+<p><code>$( … )</code> runs a command and puts what it prints in its place – here, the list of the first three people. Now two loops, one inside the other: for each person, for each of the two haplotypes, build the sequence and add it to one file. <code>sed</code> renames each sequence (the <code>&gt;</code> line) to the person and haplotype, <code>&gt;&gt;</code> adds it to the end of <code>haplotypes.fa</code>, and <code>2&gt;/dev/null</code> throws away the messages bcftools writes as it works. Run it on three people first:</p>
+<pre class="code" data-run="term"><code>rm -f results/haplotypes.fa
+for s in $(head -3 results/hprc_people.txt); do
+  for h in 1 2; do
+    bcftools consensus -f results/ref_region.fa -s $s -H $h /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz 2&gt;/dev/null | sed "s/^&gt;.*/&gt;${s}_hap${h}/" &gt;&gt; results/haplotypes.fa
+  done
+done
+grep "&gt;" results/haplotypes.fa</code></pre>
+<p>Six sequences, named <code>HG00097_hap1</code> to <code>HG00126_hap2</code>? Then run it on everyone (<code>cat</code> in place of <code>head -3</code>). It takes a minute or two – watch the files grow in the Files tab.</p>
+<pre class="code" data-run="term"><code>rm -f results/haplotypes.fa
+for s in $(cat results/hprc_people.txt); do
+  for h in 1 2; do
+    bcftools consensus -f results/ref_region.fa -s $s -H $h /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz 2&gt;/dev/null | sed "s/^&gt;.*/&gt;${s}_hap${h}/" &gt;&gt; results/haplotypes.fa
+  done
+done
+grep -c "&gt;" results/haplotypes.fa
+seqtk comp results/haplotypes.fa | cut -f 2 | sort | uniq -c</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p><b>462</b> sequences: 327 of 546 letters, 132 of 600 and 3 of 599.</p></div>
+<div class="task"><div class="task-t">Your turn</div>
+<p>Why are three sequences 599 letters long? Which haplotypes are they (<code>seqtk comp</code> prints the names in its first column; <code>awk '$2 == 599'</code>), and which line of the VCF explains them?</p>
+<details class="hint"><summary>Show a hint</summary><p>Look again at the line you found with <code>awk 'length($2) &gt; 1'</code> that was not the repeat, and at its <code>AC</code>.</p></details>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="term"><code>seqtk comp results/haplotypes.fa | awk '$2 == 599' | cut -f 1
+bcftools query -r chr1:7830272 -f '[%SAMPLE %GT\n]' /data/examples/per3/hprc/hprc_per3_vntr.vcf.gz | grep -v "0|0"</code></pre>
+<p>HG02717_hap2, HG03516_hap1 and NA18508_hap1 have five units and also carry the one-letter deletion at 7,830,272 (<code>TC</code> → <code>T</code>, AC=3), after the repeat.</p></details></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>Why does phasing matter here? What could you not do if the genotypes were written <code>2/1</code>?</li>
+<li>You rebuilt 600 letters, not a whole chromosome. Why is that enough for this question? What would you miss if a variant between two units had been left out of the VCF?</li>
+<li>The VCF was made by comparing each chromosome with GRCh38. What happens to a sequence that GRCh38 does not have at all – an insertion longer than anything in the reference?</li>
+</ul></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>What a VCF file is, the columns, and what <code>0|1</code>, <code>2|1</code> and <code>AC</code> mean, in your words.</li>
+<li>Your first numbers: 327 four-repeat and 135 five-repeat chromosomes among 462. What fraction is that?</li>
+<li>The loop you ran, line by line, with what each part does. Note the date: <code>results/haplotypes.fa</code> is the raw material of the next three stages.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Pick a person from your own part of the world (<code>/data/examples/per3/hprc/hprc_samples.tsv</code> says who is from where; <code>grep</code> it) and find their two alleles.</li>
+<li>The VCF has 25 other variants. Which are common (<code>AC</code> above 46, 10% of 462)? Do any sit inside the repeat's units (7,829,888–7,830,157)?</li>
+<li>Read <a href="#h-vcf">VCF files and bcftools</a> in the help.</li>
+</ul>
+<ul class="checklist">
+<li data-check="s3-vcf">I can explain the columns of a VCF file and what a phased genotype is.</li>
+<li data-check="s3-repeat">I found the line of the repeat, and how its alleles differ.</li>
+<li data-check="s3-count">I counted the four- and five-repeat alleles (327 and 135).</li>
+<li data-check="s3-one">I rebuilt the two haplotypes of HG00099 with <code>bcftools consensus</code>.</li>
+<li data-check="s3-loop">I ran the loop and have 462 sequences in <code>results/haplotypes.fa</code>.</li>
+<li data-check="s3-599">I explained the three sequences of 599 letters.</li>
+<li data-check="s3-log">I wrote this stage up in my logbook, and downloaded my files.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s02"><small>Back</small>← Stage 2 · Find the repeat</button><button class="next" type="button" data-goto="h-s04"><small>Next</small>Stage 4 · Count the repeats →</button></div>

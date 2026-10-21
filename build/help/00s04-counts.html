@@ -1,0 +1,116 @@
+<!-- id: h-s04 | title: Stage 4 · Count the repeats | group: The project | stage: 4 | tab: yes | tabtitle: Stage 4 – Count the repeats | summary: Count the units of every haplotype, two ways; your first R notebook: data frames, tables and a bar chart; genotypes of people | keys: stage 4 count repeats units seqtk seq paste awk gsub repeat_counts.tsv r notebook webr data frame read.delim table prop.table barplot png dev.off genotype tapply merge sub regular expression -->
+<h1>Stage 4 · Count the repeats</h1>
+<div class="stage-meta"><span class="when">Week 4</span><span>about 5 hours</span><span class="stage-progress"></span></div>
+<p class="lede">You have the repeat's sequence in 462 chromosomes. Count the units in each, in two independent ways – and then meet <b>R</b>, the language you will use for the rest of the project, to turn the counts into tables, genotypes and your first figure.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to turn a FASTA file into a table, and count a pattern in every line of it</li>
+<li>to check a result by getting it another way</li>
+<li>R in a notebook: objects, vectors, data frames, functions; <code>read.delim</code>, <code>table</code>, <code>barplot</code></li>
+<li>to save a figure as a file, ready for your report</li>
+</ul></div>
+
+<h2>1. Count the units in every haplotype</h2>
+<p>A FASTA file spreads each sequence over several lines, which makes it awkward to treat as a table. <code>seqtk seq -l0</code> writes each sequence on one line, and <code>paste - -</code> joins every two lines into one, with a tab between them: name, then sequence. Look at the first two – cut short, so they fit:</p>
+<pre class="code" data-run="term"><code>cd ~/project
+seqtk seq -l0 results/haplotypes.fa | head -4 | cut -c 1-70
+seqtk seq -l0 results/haplotypes.fa | paste - - | head -2 | cut -c 1-90</code></pre>
+<p>Now count <code>CTGTCC</code>, the first letters of every unit, in the sequence of each line. In <code>awk</code>, <code>gsub(/CTGTCC/, "&amp;", $2)</code> replaces each <code>CTGTCC</code> in the second column with itself (so nothing changes) and says how many it replaced; <code>substr($1, 2)</code> is the name without its <code>&gt;</code>. Save the result as a table, <code>repeat_counts.tsv</code> (<code>.tsv</code>: tab-separated values):</p>
+<pre class="code" data-run="term"><code>seqtk seq -l0 results/haplotypes.fa | paste - - | awk -F'\t' '{n = gsub(/CTGTCC/, "&amp;", $2); print substr($1, 2) "\t" n}' &gt; results/repeat_counts.tsv
+head -4 results/repeat_counts.tsv
+cut -f 2 results/repeat_counts.tsv | sort | uniq -c</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p><b>327</b> haplotypes with 4 units and <b>135</b> with 5 – the same as you counted from the genotypes in stage 3. Nobody has 3, 6 or any other number.</p></div>
+
+<h2>2. Count them another way</h2>
+<p>A result you got one way may be wrong in a way you cannot see. Get it a second way, and compare. Each haplotype is 600 letters long with five units, and each unit is 54 letters, so the letters outside the units are 600 − 5 × 54 = 330. From the length of a sequence, then, the number of units is (length − 330) / 54. Keep the lengths in a table:</p>
+<pre class="code" data-run="term"><code>seqtk comp results/haplotypes.fa | cut -f 1,2 &gt; results/haplotype_lengths.tsv
+head -3 results/haplotype_lengths.tsv</code></pre>
+<p>You will compare the two in R.</p>
+
+<h2>3. Your first R notebook</h2>
+<p>A <b>notebook</b> is a document of <b>cells</b>: cells of code, whose output appears just below them, and cells of text, where you write what you did and what you found. It is a lab notebook that runs. Open the notebook of this stage – it is made the first time you click, in <code>~/notebooks</code>:</p>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage04-counts|Stage 4 – Count the repeats">Open my stage 4 notebook</button></div>
+<p>Click into a code cell, type, and press <kbd>Shift</kbd>+<kbd>Enter</kbd> to run it. The <b>Add to notebook</b> button of a grey box puts its code into a new cell of the open notebook. R takes a few seconds to start the first time. (<a href="#h-notebook">Notebooks</a> in the help explains the rest.)</p>
+<h3>R in five minutes</h3>
+<p>Run this cell, then change the numbers and run it again:</p>
+<pre class="code" data-run="r"><code># "x gets 54": an object called x holds the number 54
+x &lt;- 54
+# R prints the result of what you type
+x * 5
+# c() combines values into a vector
+units &lt;- c(4, 5, 5, 4, 4)
+length(units)
+mean(units)
+# a test, done on each value: TRUE or FALSE
+units == 5
+# TRUE counts as 1
+sum(units == 5)</code></pre>
+<p>Everything after <code>#</code> is a <b>comment</b>, for people, not for R. <code>length</code>, <code>mean</code> and <code>sum</code> are <b>functions</b>: a name, then what it works on in brackets. To read the manual of a function, run <code>?mean</code>.</p>
+
+<h3>Read the counts</h3>
+<p>A table in R is a <b>data frame</b>: columns with names, one row per thing. <code>read.delim</code> reads a tab-separated file into one. The file has no header line, so give the columns their names:</p>
+<pre class="code" data-run="r"><code>counts &lt;- read.delim("~/project/results/repeat_counts.tsv", header = FALSE,
+                     col.names = c("haplotype", "repeats"))
+head(counts)
+nrow(counts)
+table(counts$repeats)
+prop.table(table(counts$repeats))</code></pre>
+<p><code>counts$repeats</code> is the column <code>repeats</code> of the data frame <code>counts</code>. <code>table</code> counts how many times each value occurs; <code>prop.table</code> turns the counts into fractions.</p>
+<div class="callout check"><div class="co-t">Check</div><p>462 rows; 327 fours and 135 fives; the five-repeat allele makes up <b>0.292</b> of the haplotypes – its <b>allele frequency</b> in these 231 people.</p></div>
+
+<h3>Your first figure</h3>
+<pre class="code" data-run="r"><code>barplot(table(counts$repeats), xlab = "Units in the PER3 repeat", ylab = "Haplotypes",
+        col = "steelblue", main = "462 haplotypes of the HPRC")</code></pre>
+<p>The plot appears under the cell. To keep it as a file for your report, open a picture file with <code>png()</code>, draw, and close it with <code>dev.off()</code>:</p>
+<pre class="code" data-run="r"><code>png("~/project/figures/fig_repeat_counts.png", width = 1200, height = 1000, res = 200)
+barplot(table(counts$repeats), xlab = "Units in the PER3 repeat", ylab = "Haplotypes",
+        col = "steelblue", main = "462 haplotypes of the HPRC")
+dev.off()</code></pre>
+<p>Find the file in the Files tab and open it.</p>
+
+<h2>4. From haplotypes to people</h2>
+<p>A person has two haplotypes, and a <b>genotype</b> – 4/4, 4/5 or 5/5. The names say whose haplotype is whose: remove <code>_hap1</code> or <code>_hap2</code> from the end and you have the person. <code>sub</code> replaces a pattern – a regular expression again: <code>[12]</code> is "1 or 2", and <code>$</code> "at the end".</p>
+<pre class="code" data-run="r"><code>counts$person &lt;- sub("_hap[12]$", "", counts$haplotype)
+head(counts)
+length(unique(counts$person))</code></pre>
+<p><code>tapply</code> applies a function to a column, group by group – here to the two counts of each person, which it sorts and pastes together:</p>
+<pre class="code" data-run="r"><code>genotype &lt;- tapply(counts$repeats, counts$person, function(x) paste(sort(x), collapse = "/"))
+head(genotype)
+table(genotype)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>231 people: <b>113</b> are 4/4, <b>101</b> are 4/5 and <b>17</b> are 5/5.</p></div>
+<div class="callout think"><div class="co-t">Think</div><p>Archer et al. (2003) and Viola et al. (2007) compared 4/4 with 5/5 people. If you wanted 20 people of each genotype, and recruited people like these 231, how many would you have to genotype? What does that mean for studies of 5/5 people?</p></div>
+
+<div class="task"><div class="task-t">Your turn: do the two counts agree?</div>
+<p>Read <code>results/haplotype_lengths.tsv</code> into a data frame with the columns <code>haplotype</code> and <code>length</code>, join it to <code>counts</code> with <code>merge(counts, len)</code> (if you called it <code>len</code>) (it matches the rows by the column they share, <code>haplotype</code>), and add a column with the number of units worked out from the length. Make a table of one count against the other: <code>table(a, b)</code> with two columns counts every pair of values. Do they agree for all 462? If not, which ones differ, and why?</p>
+<details class="hint"><summary>Show a hint</summary><p><code>both$from_length &lt;- (both$length - 330) / 54</code>. To see the rows that differ: <code>both[both$repeats != both$from_length, ]</code> – the rows for which the test is TRUE, and all the columns (nothing after the comma).</p></details>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="r"><code>len &lt;- read.delim("~/project/results/haplotype_lengths.tsv", header = FALSE,
+                  col.names = c("haplotype", "length"))
+both &lt;- merge(counts, len)
+both$from_length &lt;- (both$length - 330) / 54
+table(motif = both$repeats, length = round(both$from_length, 2))
+both[both$repeats != both$from_length, ]</code></pre>
+<p>They agree for 459 haplotypes. The three of 599 letters give 4.98 units from their length – their one-letter deletion outside the repeat (stage 3). The motif count is right for them; the length method assumed that nothing but the repeat changes the length. Each method has an assumption; checking one against the other shows where an assumption fails.</p></details></div>
+
+<p>Write in the notebook's text cells what each step does and what you found, then save it (<kbd>Ctrl</kbd>+<kbd>S</kbd>). The notebook is now part of your record.</p>
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>The numbers: haplotypes with 4 and 5 units, the allele frequency, the genotypes.</li>
+<li>The two ways of counting, and why they disagree for three haplotypes.</li>
+<li>Your first figure – and one thing you would change about it.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Make the bar chart show fractions rather than counts, with the numbers written on the bars (<code>b &lt;- barplot(…)</code> gives the positions of the bars; <code>text(b, y, labels)</code> writes on them).</li>
+<li>Try the same count with Python in a notebook, if you are curious about it (<a href="#h-python">Python</a>): it is <code>seq.count("CTGTCC")</code>.</li>
+</ul>
+<ul class="checklist">
+<li data-check="s4-counts">I made <code>results/repeat_counts.tsv</code>, and found 327 and 135.</li>
+<li data-check="s4-nb">I opened my stage 4 notebook and ran R code in it.</li>
+<li data-check="s4-table">I read the counts into a data frame and made a table and a bar chart.</li>
+<li data-check="s4-png">I saved the figure as <code>figures/fig_repeat_counts.png</code>.</li>
+<li data-check="s4-genotypes">I counted the genotypes of the 231 people.</li>
+<li data-check="s4-check">I compared the two ways of counting and explained the difference.</li>
+<li data-check="s4-log">I wrote this stage up in my logbook and in the notebook's text cells.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s03"><small>Back</small>← Stage 3 · From a pangenome to 462 haplotypes</button><button class="next" type="button" data-goto="h-s05"><small>Next</small>Stage 5 · What makes the alleles different →</button></div>

@@ -1,0 +1,199 @@
+<!-- id: h-s09 | title: Stage 9 · Does the repeat change sleep? | group: The project | stage: 9 | tab: yes | tabtitle: Stage 9 – Does the repeat change sleep? | summary: The tag SNP in GWAS of chronotype and sleep in UK Biobank; confidence intervals and power; a regional plot coloured by LD; the real PER3 signal; gene expression in the brain (GTEx) | keys: stage 9 gwas genome-wide association summary statistics uk biobank chronotype morning person sleep duration insomnia napping accelerometer effect allele beta se p value confidence interval power regional plot locuszoom grch37 grch38 rsid palindromic strand phewas bonferroni gtex eqtl nes expression brain hypothalamus gwas catalog rs61773390 4b -->
+<h1>Stage 9 · Does the repeat change sleep?</h1>
+<div class="stage-meta"><span class="when">Weeks 9–10</span><span>about 8 hours</span><span class="stage-progress"></span></div>
+<p class="lede">Twenty years of studies of tens or hundreds of people; now you can ask hundreds of thousands. Look up your tag in genome-wide association studies (GWAS) of chronotype and sleep in UK Biobank, work out how large an effect of the repeat these studies could have missed, map the real <i>PER3</i> signal – and ask whether the repeat changes how much <i>PER3</i> the brain makes.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to read GWAS summary statistics: effect allele, effect size, standard error, <i>P</i></li>
+<li>confidence intervals and statistical power – what a "no" can and cannot tell you</li>
+<li>genome builds (GRCh37 and GRCh38), and why rsIDs are the safe way to join data</li>
+<li>a regional association plot coloured by LD, and multiple testing</li>
+<li>eQTLs: genetic effects on gene expression, from GTEx</li>
+</ul></div>
+
+<div class="callout science"><div class="co-t">GWAS in two paragraphs</div>
+<p>A genome-wide association study tests millions of SNPs, one at a time, for a difference in a trait between people with different genotypes. For each SNP it reports the <b>effect allele</b>, the <b>effect</b> – how much the trait changes per copy of that allele (<code>BETA</code>; for a yes/no trait a log odds ratio, <code>LOGOR</code>) – its <b>standard error</b> (<code>SE</code>), and the <b>P</b> value. Because millions of tests are done, a SNP counts as associated only if <i>P</i> &lt; 5 × 10<sup>−8</sup>, "genome-wide significance". The full results of a study are its <b>summary statistics</b>; many are public.</p>
+<p><b>UK Biobank</b> recruited half a million people aged 40–69 in Britain in 2006–2010 and asked them, among many things, "Do you consider yourself to be definitely a 'morning' person, more a 'morning' than 'evening' person, more an 'evening' than a 'morning' person, definitely an 'evening' person?" Jones et al. (2019) turned the answers into a chronotype score in which higher means more of a morning person (read their methods for exactly how), and tested 449,734 people of European ancestry. You have their results for the 600,000 letters around <i>PER3</i>, and those of four other studies of sleep (<a href="#h-data">The project data</a>).</p></div>
+
+<h2>1. The files</h2>
+<pre class="code" data-run="term"><code>cd ~/project
+ls /data/examples/per3/gwas
+head -3 /data/examples/per3/gwas/chronotype_Jones2019.tsv
+grep -w rs228701 /data/examples/per3/gwas/chronotype_Jones2019.tsv</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>rs228701 is at 7,889,804 here – not 7,829,744. These studies used the older build of the reference genome, <b>GRCh37</b>, whose coordinates of this region are 60,060 larger. Positions change between builds; rsIDs do not. Join data by rsID, or convert positions with a <i>liftover</i> tool, and always write down which build a position is in.</p></div>
+<div class="callout warn"><div class="co-t">Which allele?</div><p>rs228701 is a C/G SNP. C and G pair with each other, so the same SNP read from the other strand of the DNA is G/C – and nothing in the alleles says which strand a study used. (A/T SNPs have the same trap.) Here the studies give alleles on the + strand of the reference, as the pangenome and 1000 Genomes do, and the allele frequency agrees: the effect allele, C, has a frequency of 0.34 in UK Biobank and the C allele (five repeats) 0.335 in the Europeans of the 1000 Genomes Project. Check both whenever you join a GWAS to other data.</p></div>
+
+<h2>2. The repeat and chronotype</h2>
+<div class="tryrow"><button class="do" type="button" data-stage-nb="r|stage09-gwas|Stage 9 – Does the repeat change sleep?">Open my stage 9 notebook</button></div>
+<pre class="code" data-run="r"><code>gw &lt;- "/data/examples/per3/gwas/"
+chrono &lt;- read.delim(paste0(gw, "chronotype_Jones2019.tsv"))
+nrow(chrono)
+head(chrono, 3)
+tag &lt;- chrono[chrono$SNP == "rs228701", ]
+tag</code></pre>
+<p><code>ALLELE1</code> is the effect allele: C, the allele that travels with the five-repeat allele. So <code>BETA</code> is the effect on the chronotype score of each copy of the five-repeat allele.</p>
+<div class="callout check"><div class="co-t">Check</div><p>BETA = −0.0030, SE = 0.0028, <i>P</i> = 0.28: no sign of an effect.</p></div>
+<p>"No significant effect" is not the same as "no effect". The <b>95% confidence interval</b> says which effects the data are compatible with:</p>
+<pre class="code" data-run="r"><code>ci &lt;- tag$BETA + c(-1.96, 1.96) * tag$SE
+ci</code></pre>
+<p>And the study's <b>power</b>: the smallest effect it would have found 80% of the time is about (<i>z</i> for the significance level + <i>z</i> for 80% power) × SE.</p>
+<pre class="code" data-run="r"><code>(qnorm(1 - 0.05 / 2) + qnorm(0.8)) * tag$SE      # at P &lt; 0.05
+(qnorm(1 - 5e-8 / 2) + qnorm(0.8)) * tag$SE      # at P &lt; 5e-8</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>The confidence interval runs from −0.0085 to +0.0026. With 80% power the study would have detected an effect of 0.008 at <i>P</i> &lt; 0.05, and of 0.018 at genome-wide significance.</p></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>Archer et al. (2003) found 5/5 people to be morning types. Is the confidence interval compatible with the five-repeat allele making people more of a morning person? By how much, at most, per allele?</li>
+<li>To judge whether 0.0026 is large or small, compare it with the strongest SNP near <i>PER3</i> (section 3).</li>
+<li>Name three ways in which the people and the measurements of UK Biobank differ from those of the small studies. Could the repeat matter in one setting and not in the other?</li>
+</ul></div>
+
+<h2>3. The region: where is the real signal?</h2>
+<p>Which SNPs near <i>PER3</i> <i>are</i> associated with chronotype?</p>
+<pre class="code" data-run="r"><code>chrono$logp &lt;- -log10(chrono$P_BOLT_LMM)
+head(chrono[order(-chrono$logp), c("SNP", "BP", "ALLELE1", "ALLELE0", "A1FREQ", "BETA", "SE", "P_BOLT_LMM")], 8)</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>The strongest is <b>rs61773390</b>, <i>P</i> = 1.2 × 10<sup>−23</sup>, BETA = −0.034 for its G allele (frequency 0.80) – so +0.034 for its T allele. Several SNPs in LD with it have nearly the same <i>P</i>.</p></div>
+<p>A <b>regional plot</b> shows −log<sub>10</sub>(<i>P</i>) of every SNP against its position, coloured by its LD with the variant you care about. Give each GWAS SNP its r² with the repeat from stage 7 – joined by rsID, because the positions are in different builds:</p>
+<pre class="code" data-run="r"><code>ld &lt;- read.delim("~/project/results/ld_with_vntr.tsv")
+chrono$r2 &lt;- ld$r2[match(chrono$SNP, ld$rsid)]
+mean(!is.na(chrono$r2))                    # the fraction of GWAS SNPs found in the pangenome
+col &lt;- as.character(cut(chrono$r2, c(-0.01, 0.2, 0.4, 0.6, 0.8, 1),
+                        labels = c("navy", "lightblue", "green3", "orange", "red")))
+col[is.na(col)] &lt;- "grey80"
+o &lt;- order(!is.na(chrono$r2), chrono$r2)   # draw the grey points first and the red ones last, on top
+png("~/project/figures/fig_regional_chronotype.png", width = 1600, height = 1000, res = 200)
+plot(chrono$BP[o] / 1e6, chrono$logp[o], pch = 20, col = col[o], cex = 0.8, xlab = "chr1 position (Mb, GRCh37)",
+     ylab = expression(-log[10](italic(P))), main = "Chronotype (UK Biobank, n = 449,734) around PER3")
+abline(h = -log10(5e-8), lty = 2, col = "grey40")
+points(tag$BP / 1e6, -log10(tag$P_BOLT_LMM), pch = 23, bg = "purple", cex = 1.6)
+text(tag$BP / 1e6, -log10(tag$P_BOLT_LMM) + 2.5, "rs228701\n(tags the VNTR)", cex = 0.7)
+legend("topright", title = expression(r^2 ~ "with the VNTR"), fill = c("red", "orange", "green3", "lightblue", "navy", "grey80"),
+       legend = c("0.8-1", "0.6-0.8", "0.4-0.6", "0.2-0.4", "0-0.2", "not in the HPRC"), cex = 0.7, bty = "n")
+dev.off()</code></pre>
+<p>Open the figure. (<code>order</code> sorts the points so that the SNPs in strongest LD with the repeat are drawn last, on top of the others.)</p>
+<div class="task"><div class="task-t">Your turn: which haplotypes carry the signal?</div>
+<p>The SNPs of the peak have r² close to 0 with the repeat. But are they on particular <i>types</i> of allele? Read your haplotype table of stage 7 again, and make a table of the allele type of each haplotype against its allele at rs61773390. What do you see?</p>
+<details class="hint"><summary>Show a hint</summary><p>You need the objects <code>snv</code> and <code>hap_names</code> of stage 7 (read the files again, as there), and the <code>type</code> of each haplotype in the same order: <code>alleles$type[match(hap_names, alleles$haplotype)]</code>.</p></details>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="r"><code>snv &lt;- read.delim("~/project/results/snv_haplotypes.tsv", header = FALSE, na.strings = ".")
+samples &lt;- readLines("~/project/results/samples_in_vcf_order.txt")
+hap_names &lt;- paste0(rep(samples, each = 2), "_hap", 1:2)
+colnames(snv) &lt;- c("pos", "rsid", "ref", "alt", hap_names)
+alleles &lt;- read.delim("~/project/results/vntr_alleles.tsv")
+type &lt;- alleles$type[match(hap_names, alleles$haplotype)]
+i &lt;- which(snv$rsid == "rs61773390")      # which(): SNVs without an rsID have NA, and would get in the way
+table(type, rs61773390 = unlist(snv[i, hap_names]))
+chrono[chrono$SNP %in% c("rs61773390", "rs2640909", "rs228701"), c("SNP", "ALLELE1", "A1FREQ", "BETA", "P_BOLT_LMM")]</code></pre>
+<p>The T allele of rs61773390 (coded 1) is found only on <b>4B</b> haplotypes – on 58 of the 85 – and on one rare four-repeat allele: never on 4A, 5A or 5B. The strongest chronotype signal at <i>PER3</i> marks a branch of the four-repeat alleles, not the number of units. Its T allele makes people <i>more</i> of a morning person (+0.034 per copy), and so does the C allele of rs2640909, the 4B missense change of stage 5 (<i>P</i> = 1.3 × 10<sup>−4</sup>). Because some four-repeat alleles carry this "morning" branch, the four-repeat allele as a whole looks slightly more "morning" than the five-repeat – the opposite of what Archer et al. reported.</p></details></div>
+<div class="callout science"><div class="co-t">What this means</div><p>A GWAS signal points to a haplotype, not to a variant: the cause could be any variant on the haplotypes that carry rs61773390's T allele – or something else entirely, on the same branch. What the data say clearly is that the repeat length itself does not carry the chronotype association of <i>PER3</i>. Whether it has a small effect of its own, once the 4B branch is accounted for, needs a <i>conditional</i> analysis of the individual data – a question for your discussion.</p></div>
+
+<h2>4. Other sleep traits</h2>
+<p>Does the tag show anything for the other traits? The files name their columns differently, so write a function that finds the right columns in each:</p>
+<pre class="code" data-run="r"><code>look &lt;- function(file, snp = "rs228701") {
+  x &lt;- read.delim(paste0(gw, file))
+  id &lt;- intersect(c("SNP", "variant_id"), names(x))[1]
+  r &lt;- x[which(x[[id]] == snp), ]                  # which(), again, to skip the rows without an ID
+  col &lt;- function(pattern) grep(pattern, names(r), value = TRUE, ignore.case = TRUE)[1]
+  data.frame(effect_allele = r[[col("^(ALLELE1|effect_allele)$")]],
+             effect = r[[col("^(BETA|LOGOR)")]],
+             se = r[[col("^(SE|LOGOR_SE|standard_error)")]],
+             p = r[[col("^P")]])
+}
+traits &lt;- c(chronotype = "chronotype_Jones2019.tsv", morning_person = "morning_person_Jones2019.tsv",
+            sleep_duration = "sleep_duration_Dashti2019.tsv", insomnia = "insomnia_Lane2019.tsv",
+            daytime_nap = "daytime_nap_Dashti2021.tsv")
+phewas &lt;- do.call(rbind, lapply(traits, look))
+phewas
+write.table(cbind(trait = rownames(phewas), phewas), "~/project/results/phewas_rs228701.tsv",
+            sep = "\t", quote = FALSE, row.names = FALSE)</code></pre>
+<p><code>lapply</code> runs <code>look</code> on each file and gives a list of one-row data frames; <code>do.call(rbind, …)</code> stacks them into one table. Looking up one variant in many traits is a small <b>PheWAS</b> (phenome-wide association study).</p>
+<div class="callout check"><div class="co-t">Check</div><p>Chronotype <i>P</i> = 0.28, morning person 0.071, sleep duration 0.16, insomnia 0.19, daytime napping 0.02.</p></div>
+<p>Self-report is one way to measure sleep. In about 85,000 of the UK Biobank's participants, sleep was measured for a week by a wrist accelerometer, and Jones et al. (2019) ran GWAS of eight measures – among them the <b>midpoint</b> of sleep, the timing of the least active five hours (<b>L5</b>) and of the most active ten (<b>M10</b>), and sleep duration and efficiency. All eight are in one file, four columns each (A1FREQ, BETA, SE and P): <code>_RAW</code> for the measure as it is (in hours, mostly), <code>_RAW_SIN</code> after it was transformed to a normal distribution (in standard deviations) – the version the authors report. Missing values are written <code>-</code>.</p>
+<pre class="code" data-run="r"><code>acc &lt;- read.delim(paste0(gw, "accelerometer_Jones2019.tsv"), na.strings = "-")
+dim(acc)
+acc_tag &lt;- acc[which(acc$SNP == "rs228701"), ]
+acc_tag[, 1:5]
+measures &lt;- c("ACC_SLEEP_DUR", "ACC_SLEEP_EFF", "ACC_N_SLEEP_EPISODES", "ACC_SLEEP_DUR_SD",
+              "ACC_SLEEP_MIDP", "ACC_L5_TIME", "ACC_M10_TIME", "ACC_DIURNAL_INACT")
+acc_tab &lt;- data.frame(measure = measures,
+                      effect_sd = unlist(acc_tag[paste0(measures, "_RAW_SIN_BETA")]),
+                      se_sd = unlist(acc_tag[paste0(measures, "_RAW_SIN_SE")]),
+                      p = unlist(acc_tag[paste0(measures, "_RAW_SIN_P")]),
+                      effect_raw = unlist(acc_tag[paste0(measures, "_RAW_BETA")]), row.names = NULL)
+acc_tab</code></pre>
+<p><code>paste0(measures, "_RAW_SIN_BETA")</code> makes the eight column names at once, and <code>acc_tag[…]</code> takes those columns.</p>
+<div class="callout check"><div class="co-t">Check</div><p>The midpoint of sleep: <i>P</i> = 0.00089, effect +0.017 SD (+0.0086 hours, about half a minute later, per copy of C). The other seven measures have <i>P</i> &gt; 0.05.</p></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>You have now looked at 13 traits. With 13 tests, how often would at least one give <i>P</i> &lt; 0.05 by chance? What is the Bonferroni threshold (0.05 divided by the number of tests)? Which results pass it?</li>
+<li>Does the midpoint result fit the chronotype result (section 2)? Which direction is "later": the five-repeat allele, or the four?</li>
+<li>The peak SNP of section 3, rs61773390, is on 4B haplotypes. Look it up in the accelerometer file too (<code>acc[which(acc$SNP == "rs61773390"), ]</code>). Could the 4B branch explain the midpoint result? (The <i>going further</i> section has a way to test it.)</li>
+</ul></div>
+
+<h2>5. What else is <i>PER3</i> known for?</h2>
+<p>The GWAS Catalog collects the associations reported by published GWAS. <code>gwas_catalog_PER3_associations.tsv</code> has the 28 it maps to <i>PER3</i>:</p>
+<pre class="code" data-run="r"><code>cat_per3 &lt;- read.delim(paste0(gw, "gwas_catalog_PER3_associations.tsv"))
+cat_per3[order(cat_per3$p_value), c("rsid", "position_GRCh38", "p_value", "reported_trait", "first_author")]</code></pre>
+<div class="task"><div class="task-t">Your turn</div><p>Which associations are with sleep or chronotype, and which variants? Is any of the variants inside the repeat, or one you have met before? (Compare <code>position_GRCh38</code> with your positions.) Several associations are with the level of the PER3 protein in blood plasma (<i>pQTLs</i>). Look up the strongest, rs148515378, in Ensembl: what kind of variant is it, and how common is it?</p>
+<details class="hint answer"><summary>Show the answer</summary><p>rs2640909 at 7,830,057 is the 4B missense change inside the repeat (stage 5); the Catalog lists it for body mass index and spine osteoarthritis. The chronotype associations are rs61773390 (the peak of section 3) and SNPs near it. The strongest protein-level association, rs148515378 (<i>P</i> = 8 × 10<sup>−120</sup>), is in an intron of <i>PER3</i>, and uncommon: its A allele is on about 3% of chromosomes in UK Biobank. A variant that does not change the protein can still change how much of it is made (by changing splicing or transcription) – or travel with one that does.</p></details></div>
+
+<h2>6. Does the repeat change how much <i>PER3</i> is made?</h2>
+<p>GTEx measured the RNA of every gene in 49 tissues of about a thousand people who had died, 13 of the tissues from the brain, and genotyped them. A variant associated with the amount of a gene's RNA is an <b>eQTL</b>; GTEx reports its normalised effect size (NES) for the <b>alternative</b> allele – for rs228701 that is G, the <i>four</i>-repeat tag. You can ask GTEx's API yourself:</p>
+<pre class="code" data-run="term"><code>curl -s "https://gtexportal.org/api/v2/association/dyneqtl?gencodeId=ENSG00000049246.14&amp;variantId=chr1_7829744_C_G_b38&amp;tissueSiteDetailId=Brain_Hypothalamus&amp;datasetId=gtex_v8" | jq '{nes, pValue, homoRefCount, hetCount, homoAltCount}'</code></pre>
+<p>The results for all 49 tissues are in <code>GTEx_v8_PER3_rs228701.tsv</code>:</p>
+<pre class="code" data-run="r"><code>gtex &lt;- read.delim("/data/examples/per3/gtex/GTEx_v8_PER3_rs228701.tsv")
+gtex[order(gtex$p_value), ][1:5, ]
+brain &lt;- grepl("^Brain", gtex$tissue)
+gtex[brain, c("tissue", "NES", "p_value")]
+0.05 / nrow(gtex)
+par(mar = c(4, 14, 1, 1))
+o &lt;- order(gtex$NES)
+barplot(gtex$NES[o], names.arg = gsub("_", " ", gtex$tissue[o]), horiz = TRUE, las = 1, cex.names = 0.5,
+        col = ifelse(brain[o], "orange", "grey70"), xlab = "NES of the G allele (4-repeat tag)")</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p>No brain tissue has <i>P</i> &lt; 0.05 (the hypothalamus: NES = 0.071, <i>P</i> = 0.32). The smallest <i>P</i> of all is in testis (0.0017), above the Bonferroni threshold for 49 tissues (0.001).</p></div>
+<div class="callout think"><div class="co-t">Think</div><p>The repeat is in the coding sequence; would you expect it to change the <i>amount</i> of RNA? What else could it change? How many donors with two five-repeat alleles (CC) are there in each brain tissue, and what does that mean for the power of these tests?</p></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>The tag's results for chronotype, with the confidence interval and the power calculation, in a sentence you could put in your report.</li>
+<li>Your regional plot, and what you found about the 4B branch.</li>
+<li>The PheWAS table, and how you dealt with multiple testing.</li>
+<li>The GTEx result in the brain.</li>
+<li>The questions this stage raised – they are the material of your discussion.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Make the regional plot for the binary trait "morning person". Does it look the same?</li>
+<li>Plot the confidence intervals of the PheWAS as a <b>forest plot</b>: one row per trait, a point for the effect and a line for its interval.</li>
+<li>Look for PER3 in the GTEx portal (gtexportal.org): in which tissues is it expressed most? Is it an "eGene" anywhere, and with which variants?</li>
+<li>Find the <i>P</i> of rs228701 for other traits in the Open Targets Genetics or GWAS Catalog web sites.</li>
+</ul>
+<h3>Going further: is there an effect of the repeat once the 4B branch is taken into account?</h3>
+<p>The four-repeat alleles include the 4B branch, which carries the "morning" allele of rs61773390. So comparing four- with five-repeat alleles mixes two things. With individual data you would fit both variants in one model. With summary statistics there is an approximation: if <i>z</i><sub>1</sub> and <i>z</i><sub>2</sub> are the <i>z</i>-scores (BETA / SE) of two SNPs and <i>r</i> the correlation between them (with their effect alleles counted), the <i>z</i>-score of SNP 1 adjusted for SNP 2 is about (<i>z</i><sub>1</sub> − <i>r z</i><sub>2</sub>) / √(1 − <i>r</i><sup>2</sup>). You need <i>r</i> in people like those of UK Biobank: the 503 unrelated Europeans of the 1000 Genomes Project.</p>
+<pre class="code" data-run="term"><code>bcftools query -i 'POS==7829744 || POS==7824465' -f '%POS\t%REF\t%ALT[\t%GT]\n' /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz &gt; results/1kgp_tag_and_peak.tsv
+bcftools query -l /data/examples/per3/1000g/1kgp_per3_gene.vcf.gz &gt; results/1kgp_samples_in_vcf_order.txt
+cut -f 1-3 results/1kgp_tag_and_peak.tsv</code></pre>
+<pre class="code" data-run="r"><code>x &lt;- read.delim("~/project/results/1kgp_tag_and_peak.tsv", header = FALSE)
+ids &lt;- readLines("~/project/results/1kgp_samples_in_vcf_order.txt")
+info &lt;- read.delim("/data/examples/per3/1000g/1kgp_samples.tsv")
+eur &lt;- ids %in% info$sample[info$superpopulation == "EUR" &amp; info$unrelated_2504 == "yes"]
+alt_copies &lt;- function(row) sapply(strsplit(unlist(x[row, -(1:3)]), "|", fixed = TRUE), function(a) sum(as.integer(a)))
+c_tag &lt;- 2 - alt_copies(which(x$V1 == 7829744))    # copies of C, the effect allele of rs228701 (REF)
+g_peak &lt;- 2 - alt_copies(which(x$V1 == 7824465))   # copies of G, the effect allele of rs61773390 (REF)
+r &lt;- cor(c_tag[eur], g_peak[eur])
+r
+conditional &lt;- function(z1, z2, r) { z &lt;- (z1 - r * z2) / sqrt(1 - r^2); c(z_adjusted = z, p = 2 * pnorm(-abs(z))) }
+peak &lt;- chrono[chrono$SNP == "rs61773390", ]
+conditional(tag$BETA / tag$SE, peak$BETA / peak$SE, r)</code></pre>
+<p>Then do the same for the sleep midpoint (the <code>ACC_SLEEP_MIDP_RAW_SIN</code> columns of <code>acc</code>). Before you believe either answer, see how much it moves when <i>r</i> changes a little: <i>r</i> is 0.36 in the British (GBR) alone. What does that tell you about how far to trust this approximation? What would you need to do the analysis properly?</p>
+<details class="hint answer"><summary>Show what to expect</summary><p><i>r</i> = 0.334. For chronotype, the tag's <i>z</i> goes from −1.05 to about +2.5 (<i>P</i> ≈ 0.014): once the 4B branch is accounted for, the five-repeat allele leans towards <i>morning</i>. For the sleep midpoint, it goes from +3.35 to about +2.0 (<i>P</i> ≈ 0.05): still towards <i>later</i> sleep. The two adjusted results point in opposite directions, and both move a lot when <i>r</i> moves a little, because the peak's <i>z</i> is so large. The honest conclusion is that summary statistics cannot settle whether the repeat has a small effect of its own – a question for an analysis of the individual data of UK Biobank, and a good paragraph for your discussion.</p></details>
+<ul class="checklist">
+<li data-check="s9-builds">I can explain GRCh37 and GRCh38, and why I join the GWAS by rsID.</li>
+<li data-check="s9-tag">I found the tag's effect on chronotype, its confidence interval and the study's power.</li>
+<li data-check="s9-regional">I made the regional plot coloured by r² with the repeat.</li>
+<li data-check="s9-4b">I found which haplotypes carry the strongest chronotype signal.</li>
+<li data-check="s9-phewas">I looked the tag up in five self-reported traits and eight accelerometer measures, and thought about multiple testing.</li>
+<li data-check="s9-catalog">I read the GWAS Catalog's associations of <i>PER3</i>.</li>
+<li data-check="s9-gtex">I looked at the tag's effect on <i>PER3</i> RNA in 49 tissues.</li>
+<li data-check="s9-log">I wrote this stage up in my logbook.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s08"><small>Back</small>← Stage 8 · 3,202 short-read genomes</button><button class="next" type="button" data-goto="h-s10"><small>Next</small>Stage 10 · The repeat in apes and monkeys →</button></div>

@@ -1,0 +1,113 @@
+<!-- id: h-s02 | title: Stage 2 · Find the repeat | group: The project | stage: 2 | tab: yes | tabtitle: Stage 2 – Find the repeat | summary: Find the 54-letter unit in exon 19 of the reference genome, count it, line the units up and translate them into protein | keys: stage 2 repeat unit tandem vntr exon 19 k-mer kmer words grep -o -b regular expression fold cut redirect translate codon genetic code reading frame protein uniprot p56645 serine threonine phosphorylation -->
+<h1>Stage 2 · Find the repeat</h1>
+<div class="stage-meta"><span class="when">Week 2</span><span>about 4 hours</span><span class="stage-progress"></span></div>
+<p class="lede">Exon 19 of <i>PER3</i> holds the repeat. Find it as if nobody had told you it was there: look for words that come back, measure the distance between them, line the copies up under each other – and translate them into the protein they make.</p>
+<div class="skills"><b>You will learn</b><ul>
+<li>to save what a command prints in a file (<code>&gt;</code>), and to build a long command from short ones, one pipe at a time</li>
+<li>to count every word of a sequence – its <b>k-mers</b> – and to find a word with <code>grep</code></li>
+<li>a little of <b>regular expressions</b>, the language of patterns in text</li>
+<li>the genetic code and reading frames: from DNA to protein, by hand</li>
+</ul></div>
+
+<h2>1. The exon, in a file</h2>
+<p>In stage 1 <code>samtools faidx</code> printed exon 19 on the screen. <code>&gt;</code> sends what a command prints into a file instead. (Careful: <code>&gt;</code> replaces the file if it exists; <code>&gt;&gt;</code> adds to its end.) Then make a second file with the sequence alone, on one line: <code>grep -v</code> keeps the lines that do <i>not</i> match (here, all but the name), and <code>tr -d "\n"</code> deletes the ends of the lines.</p>
+<pre class="code" data-run="term"><code>cd ~/project
+samtools faidx /data/examples/per3/reference/GRCh38_chr1_8Mb.fa.gz chr1:7829834-7830161 &gt; results/exon19.fa
+cat results/exon19.fa
+grep -v "&gt;" results/exon19.fa | tr -d "\n" &gt; results/exon19.txt
+wc -c results/exon19.txt</code></pre>
+<div class="callout check"><div class="co-t">Check</div><p><code>wc -c</code> counts characters: <b>328</b>, the length of the exon. The sequence starts <code>CAGTGTGTTACAGG</code> and ends <code>CAGCATCAG</code>.</p></div>
+<p>Read the sequence in <code>exon19.fa</code> for a minute. Can you see anything that comes back?</p>
+
+<h2>2. Words that come back</h2>
+<p>A tandem repeat is a word – a stretch of letters – written several times in a row. So count every word. Take all the 6-letter words of the exon (letters 1–6, 2–7, 3–8 and so on: 323 of them), put identical ones together and count them. Build it one step at a time – run each line and look at what it gives before you add the next pipe:</p>
+<pre class="code" data-run="term"><code>awk '{for (i = 1; i &lt;= length($0) - 5; i++) print substr($0, i, 6)}' results/exon19.txt | head
+awk '{for (i = 1; i &lt;= length($0) - 5; i++) print substr($0, i, 6)}' results/exon19.txt | sort | uniq -c | head
+awk '{for (i = 1; i &lt;= length($0) - 5; i++) print substr($0, i, 6)}' results/exon19.txt | sort | uniq -c | sort -rn | head -12</code></pre>
+<ul>
+<li><code>awk</code> runs a small program on each line: here a loop, <code>for (…)</code>, that prints the 6 letters starting at each position, <code>substr($0, i, 6)</code> (<code>$0</code> is the whole line).</li>
+<li><code>sort</code> puts identical words next to each other; <code>uniq -c</code> counts each run of identical lines; <code>sort -rn</code> sorts by that count (<code>-n</code>: as numbers, <code>-r</code>: largest first).</li>
+</ul>
+<div class="callout check"><div class="co-t">Check</div><p><code>CCATCC</code> comes 9 times and <code>TCCCAT</code> 6 times; five words come 5 times each, among them <code>CTGTCC</code>, <code>TGTCCA</code> and <code>CCTCCC</code>.</p></div>
+<div class="callout think"><div class="co-t">Think</div><p>There are 4<sup>6</sup> = 4,096 different 6-letter words. In 323 random positions, how many times would you expect to see one particular word? So is a word that comes 5 times likely to be chance?</p></div>
+
+<h2>3. Where they are, and how far apart</h2>
+<p><code>grep -o</code> prints each match of a pattern, and <code>-b</code> the position where it starts (counting from 0, like a BED file):</p>
+<pre class="code" data-run="term"><code>grep -ob CTGTCC results/exon19.txt</code></pre>
+<div class="task"><div class="task-t">Your turn</div>
+<p>What are the distances between the positions? Do the same for <code>TGTCCA</code> and <code>CCTCCC</code>: are they the same distances? What does that tell you about the length of the repeated <b>unit</b>, and how many units there are? Write it in your logbook.</p>
+<details class="hint answer"><summary>Show the answer</summary><p><code>CTGTCC</code> starts at 54, 108, 162, 216 and 270: every <b>54</b> letters. The other words are 54 apart as well, so the unit is 54 letters long, and there are <b>five</b> units, from position 54 to 323 (in the exon's own numbering from 0). 54 letters are 18 codons.</p></details></div>
+<p>Now cut out the units and print them one under another: <code>cut -c 55-324</code> keeps characters 55–324 (counting from 1 this time), and <code>fold -w 54</code> breaks them into lines of 54. <code>nl</code> numbers the lines.</p>
+<pre class="code" data-run="term"><code>cut -c 55-324 results/exon19.txt | fold -w 54 | nl</code></pre>
+<p>The same with a <b>regular expression</b>, a pattern: <code>.</code> means any one letter, and <code>\{48\}</code> "48 of the thing before". So <code>CTGTCC.\{48\}</code> is <code>CTGTCC</code> and the next 48 letters – one unit. Save the units in a file; you will use them again.</p>
+<pre class="code" data-run="term"><code>grep -o 'CTGTCC.\{48\}' results/exon19.txt &gt; results/units_GRCh38.txt
+cat results/units_GRCh38.txt</code></pre>
+<div class="task"><div class="task-t">Your turn: compare the units</div>
+<p>Copy the five units into your logbook, one under another (or look at them in the terminal), and mark the columns where they differ. Which two units are most alike? Which one is most different, and where?</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<p>Here each unit is compared with unit 1, with a dot where it has the same letter:</p>
+<pre class="code"><code>R1 CTGTCCACGGGGTCACCTCCCAGGGAGAATCCATCCCATCCTACTGCCAGCGCT
+R2 ........A..A..G.......T.A.............................
+R3 ........A..A..G.......T.A..........................A.A
+R4 .......T...A.TG........CAG..C....................CT.T.
+R5 .......................C..ATCC......AGAA..GG.T.AGCA..A</code></pre>
+<p>Units 2 and 3 differ at only 2 letters, at the very end. Unit 5, the last, is the most different: it is a decayed copy, different from unit 1 at 17 letters, most of them in its second half. In stage 5 you will call the units R1–R5, as here.</p></details></div>
+
+<h2>4. From DNA to protein</h2>
+<p>Each unit is 18 codons – but which three letters make a codon depends on where you start: there are three <b>reading frames</b>. Translate the first unit by hand in the frame that starts with its first letter, <code>CTG TCC ACG …</code>, using the table (first letter on the left, second at the top, third in the box):</p>
+<table class="codons">
+<tr><th></th><th>T</th><th>C</th><th>A</th><th>G</th></tr>
+<tr><th>T</th><td>TTT F<br>TTC F<br>TTA L<br>TTG L</td><td>TCT S<br>TCC S<br>TCA S<br>TCG S</td><td>TAT Y<br>TAC Y<br>TAA *<br>TAG *</td><td>TGT C<br>TGC C<br>TGA *<br>TGG W</td></tr>
+<tr><th>C</th><td>CTT L<br>CTC L<br>CTA L<br>CTG L</td><td>CCT P<br>CCC P<br>CCA P<br>CCG P</td><td>CAT H<br>CAC H<br>CAA Q<br>CAG Q</td><td>CGT R<br>CGC R<br>CGA R<br>CGG R</td></tr>
+<tr><th>A</th><td>ATT I<br>ATC I<br>ATA I<br>ATG M</td><td>ACT T<br>ACC T<br>ACA T<br>ACG T</td><td>AAT N<br>AAC N<br>AAA K<br>AAG K</td><td>AGT S<br>AGC S<br>AGA R<br>AGG R</td></tr>
+<tr><th>G</th><td>GTT V<br>GTC V<br>GTA V<br>GTG V</td><td>GCT A<br>GCC A<br>GCA A<br>GCG A</td><td>GAT D<br>GAC D<br>GAA E<br>GAG E</td><td>GGT G<br>GGC G<br>GGA G<br>GGG G</td></tr>
+</table>
+<p class="small">The amino acids by their one-letter codes: A alanine, C cysteine, D aspartate, E glutamate, F phenylalanine, G glycine, H histidine, I isoleucine, K lysine, L leucine, M methionine, N asparagine, P proline, Q glutamine, R arginine, S serine, T threonine, V valine, W tryptophan, Y tyrosine; * a stop codon.</p>
+<p>Is your frame the right one? The real protein will tell you. Fetch PER3's sequence from UniProt and look for the 18 letters you wrote down (put them in place of <code>XXXXXXXXXXXXXXXXXX</code>):</p>
+<pre class="code" data-run="term"><code>curl -s "https://rest.uniprot.org/uniprotkb/P56645.fasta" &gt; results/PER3_P56645.fa
+head -3 results/PER3_P56645.fa
+grep -v "&gt;" results/PER3_P56645.fa | tr -d "\n" &gt; results/PER3_protein.txt
+wc -c results/PER3_protein.txt
+grep -ob XXXXXXXXXXXXXXXXXX results/PER3_protein.txt</code></pre>
+<details class="hint answer"><summary>Show the answer</summary><p>Unit 1 makes <code>LSTGSPPRENPSHPTASA</code>, which <code>grep -ob</code> finds at position 971 – counting from 0, so it starts at amino acid <b>972</b> of the protein's 1,201. The frame was right. Cut out the five protein units the same way as the DNA ones:</p>
+<pre class="code" data-run="term"><code>grep -ob LSTGSPPRENPSHPTASA results/PER3_protein.txt
+cut -c 972-1061 results/PER3_protein.txt | fold -w 18 | nl</code></pre></details>
+<div class="callout check"><div class="co-t">Check</div><p>The five units of the protein are <code>LSTGSPPRENPSHPTASA</code>, <code>LSTGSPPMKNPSHPTASA</code>, <code>LSTGSPPMKNPSHPTAST</code>, <code>LSMGLPPSRTPSHPTATV</code> and <code>LSTGSPPSESPSRTGSAA</code>: amino acids 972–1061 of UniProt's PER3.</p></div>
+<div class="task"><div class="task-t">Your turn: sites for kinases</div>
+<p>Kinases put phosphate groups on serines (S) and threonines (T) – and the speed of the clock depends on how fast PER proteins are phosphorylated. How many S and T does each protein unit have? <code>awk '{print $0, gsub(/[ST]/, "&amp;")}'</code> prints each line with the number of S and T in it (<code>gsub</code> replaces each match with itself, and says how many there were). What fraction of the repeat is S or T? How many sites does the five-repeat allele have that a four-repeat allele lacks?</p>
+<details class="hint answer"><summary>Show the answer</summary>
+<pre class="code" data-run="term"><code>cut -c 972-1061 results/PER3_protein.txt | fold -w 18 | awk '{print $0, gsub(/[ST]/, "&amp;")}'</code></pre>
+<p>6, 6, 7, 6 and 8: 33 of the 90 amino acids (37%) are S or T – about one in three. One more unit adds 6–7 possible phosphorylation sites (which unit is "the extra one" is a question for stage 5).</p></details></div>
+<div class="callout think"><div class="co-t">Think</div>
+<ul>
+<li>The exon is 328 letters, but the units cover 270 of them (5 × 54). Is 54 a multiple of 3? Why does that matter for a repeat <i>inside</i> a gene? What would happen to the protein after the repeat if a unit were 53 or 55 letters long?</li>
+<li>The reference genome is one person's DNA here – and this person had five units on this chromosome. Others have four. What other differences could there be between people, apart from the number of units?</li>
+</ul></div>
+
+<h2>5. Look at it</h2>
+<p>In the genome browser, the five units run from 7,829,888 to 7,830,157. Zoom in until you can read the letters, and find the start of each unit (<code>CTGTCC</code>):</p>
+<div class="tryrow"><button class="do" type="button" data-igv="chr1:7,829,880-7,830,165">The repeat in the genome browser</button></div>
+
+<div class="callout log"><div class="co-t">For your logbook</div>
+<ul>
+<li>How you found the repeat, step by step, and the commands – this is the start of your <b>methods</b>.</li>
+<li>The unit's length, the number of units in GRCh38, where they are (genome positions and protein positions), the five units in DNA and protein.</li>
+<li>Your answers to the <i>Think</i> questions.</li>
+</ul></div>
+
+<h2>Going further</h2>
+<ul>
+<li>Words of other lengths: change the 6 (and the 5 in <code>length($0) - 5</code>) to look at 8- or 10-letter words. When do the counts of 5 stop?</li>
+<li>Look at the protein around the repeat (<code>cut -c 940-1100 results/PER3_protein.txt</code>), and in UniProt (Databases tab): does UniProt mark this region as anything? Does it list any phosphorylation sites in it?</li>
+<li>Open the AlphaFold model of PER3 in the 3D viewer (<button class="do" type="button" data-cmd="load af P56645">load it</button>; it is coloured by AlphaFold's confidence, pLDDT – see <a href="#h-db-proteins">AlphaFold DB</a>). Find residues 972–1061 (click on the protein to see which residue is which). Does AlphaFold think the repeat is folded? What does that suggest about it?</li>
+</ul>
+<ul class="checklist">
+<li data-check="s2-files">I saved exon 19 as <code>results/exon19.fa</code> and <code>results/exon19.txt</code>.</li>
+<li data-check="s2-kmers">I counted the 6-letter words of the exon, and can explain each step of the command.</li>
+<li data-check="s2-unit">I found the length of the unit and the number of units, with <code>grep -ob</code>.</li>
+<li data-check="s2-compare">I lined up the five units and found where they differ.</li>
+<li data-check="s2-translate">I translated a unit by hand and found it in the protein.</li>
+<li data-check="s2-st">I counted the serines and threonines of each unit.</li>
+<li data-check="s2-log">I wrote this stage up in my logbook, with my answers to the questions.</li>
+</ul>
+<div class="stage-nav"><button type="button" data-goto="h-s01"><small>Back</small>← Stage 1 · The terminal and the genome</button><button class="next" type="button" data-goto="h-s03"><small>Next</small>Stage 3 · From a pangenome to 462 haplotypes →</button></div>

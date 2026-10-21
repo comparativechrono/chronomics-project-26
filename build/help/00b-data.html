@@ -1,0 +1,67 @@
+<!-- id: h-data | title: The project data | group: The project | stage: 0 | summary: Every file in /data/examples/per3: what it is, where it came from, what to cite | keys: data files per3 hprc pangenome vcf 1000 genomes gwas summary statistics gtex primates dbsnp grch38 reference fasta gff bed readme sources licence -->
+<h1>The project data</h1>
+<p class="lede">Everything the project needs is in <code>/data/examples/per3</code>, read-only, next to the guide. These are small pieces cut out of very large public data sets – the parts around <i>PER3</i> – so that they run in your browser. <code>README.md</code> in that folder says the same as this page.</p>
+<div class="tryrow"><button class="do" type="button" data-term-run="ls -R /data/examples/per3">List the files</button> <button class="do" type="button" data-open="/data/examples/per3/README.md">Open the README</button></div>
+
+<h2><code>reference/</code> – the human genome around <i>PER3</i></h2>
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>GRCh38_chr1_8Mb.fa.gz</code> (+ <code>.fai</code>, <code>.gzi</code>)</td><td>The first 8,100,000 bases of chromosome 1 of the reference genome GRCh38 (NCBI <code>NC_000001.11</code>), compressed with bgzip and indexed. The sequence is called <code>chr1</code> and its positions are those of the whole chromosome, so <code>chr1:7829834-7830161</code> means the same here as anywhere else.</td></tr>
+<tr><td><code>genes_GRCh38.gff3</code></td><td>The seven protein-coding genes of chr1:7.4–8.1 Mb – <i>CAMTA1</i>, <i>VAMP3</i>, <i>PER3</i>, <i>UTS2</i>, <i>TNFRSF9</i>, <i>PARK7</i>, <i>ERRFI1</i> – with the exons and coding sequence of their MANE Select transcript (Ensembl).</td></tr>
+<tr><td><code>PER3_exons.bed</code></td><td>The 22 exons of <i>PER3</i>'s MANE Select transcript (ENST00000377532), numbered.</td></tr>
+<tr><td><code>dbsnp157_per3_500kb.vcf.gz</code> (+ <code>.tbi</code>)</td><td>The 209,029 variants of dbSNP build 157 between chr1:7,580,000 and 8,080,000 – their positions, alleles and rsIDs – to give the pangenome's variants their names (stage 7).</td></tr>
+</table>
+
+<h2><code>hprc/</code> – 231 long-read genomes</h2>
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>hprc_per3_vntr.vcf.gz</code> (+ <code>.tbi</code>)</td><td>The variants of the 462 haplotypes of 231 people at chr1:7,829,001–7,831,000 – the repeat and 2 kb around it – from the pangenome of the Human Pangenome Reference Consortium (release 2, Minigraph-Cactus graph v2.1, GRCh38-based VCF before decomposition: one record per "bubble" of the graph, with the whole sequence of each allele). Phased genotypes: <code>0|1</code>. Used in stages 3–5.</td></tr>
+<tr><td><code>hprc_per3_500kb.vcf.gz</code> (+ <code>.tbi</code>)</td><td>The same 231 people, chr1:7,580,000–8,080,000, from the decomposed VCF of the same graph (<code>wave</code>: each record a SNP, an indel or a larger variant). 7,441 records. Used in stage 7.</td></tr>
+<tr><td><code>hprc_samples.tsv</code></td><td>The 231 people: population (the 1000 Genomes codes, such as <code>GBR</code> or <code>YRI</code>), its name (as the 1000 Genomes Project writes it), the continental group (<code>AFR</code>, <code>AMR</code>, <code>EAS</code>, <code>EUR</code>, <code>SAS</code>), sex, and whether the person is also in the 1000 Genomes high-coverage data. HG002 (Ashkenazi Jewish) and HG005 (Han Chinese) come from Genome in a Bottle.</td></tr>
+</table>
+<p>The haploid reference genome of the pangenome, CHM13, was left out of these files; so were the INFO fields <code>AF</code>, <code>NS</code> and <code>AT</code> and the graph's names for the variants.</p>
+
+<h2><code>1000g/</code> – 3,202 short-read genomes</h2>
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>1kgp_per3_gene.vcf.gz</code> (+ <code>.tbi</code>)</td><td>The phased SNVs, indels and structural variants of the 3,202 people of the high-coverage 1000 Genomes Project across <i>PER3</i>, chr1:7,780,000–7,850,000 (New York Genome Center, phased panel of 2022). 1,775 variants. Used in stages 8 and 9.</td></tr>
+<tr><td><code>1kgp_samples.tsv</code></td><td>Their population, continental group and sex, their parents if they are in the data, and whether they are one of the 2,504 unrelated people of the original project (<code>unrelated_2504</code>).</td></tr>
+</table>
+
+<h2><code>gwas/</code> – genome-wide association studies of sleep</h2>
+<p>The results of GWAS of UK Biobank (people of European ancestry) for every variant between chr1:7,600,000 and 8,200,000 – in <b>GRCh37</b> positions, as the studies published them. Downloaded from the GWAS Catalog. Each row is a variant; the effect belongs to <code>ALLELE1</code> (or <code>effect_allele</code>).</p>
+<table>
+<tr><th>File</th><th>Trait</th><th>People</th><th>Study</th></tr>
+<tr><td><code>chronotype_Jones2019.tsv</code></td><td>chronotype, from definitely an evening to definitely a morning person (BETA &gt; 0: more of a morning person)</td><td>449,734</td><td>Jones et al. 2019, GCST007576</td></tr>
+<tr><td><code>morning_person_Jones2019.tsv</code></td><td>morning person or not (LOGOR: log odds ratio)</td><td>403,195</td><td>Jones et al. 2019, GCST007565</td></tr>
+<tr><td><code>sleep_duration_Dashti2019.tsv</code></td><td>usual hours of sleep (BETA in hours)</td><td>446,118</td><td>Dashti et al. 2019, GCST007561</td></tr>
+<tr><td><code>insomnia_Lane2019.tsv</code></td><td>insomnia symptoms</td><td>453,379</td><td>Lane et al. 2019, GCST007387</td></tr>
+<tr><td><code>daytime_nap_Dashti2021.tsv</code></td><td>daytime napping, never or rarely / sometimes / usually</td><td>452,633</td><td>Dashti et al. 2021, GCST011494</td></tr>
+<tr><td><code>accelerometer_Jones2019.tsv</code></td><td>sleep measured by a wrist accelerometer for a week: the timing of the least active 5 hours (L5) and most active 10 hours (M10), the midpoint of sleep, sleep duration, efficiency, number of sleep episodes, the variability of sleep duration, and inactivity in the day. Eight measures in one file, each with four columns (A1FREQ, BETA, SE, P): <code>_RAW</code> for the measure as it is (hours; a proportion for efficiency), <code>_RAW_SIN</code> after a rank-based transformation to a normal distribution (standard deviations), the version the authors report. Missing values are <code>-</code>.</td><td>about 85,000</td><td>Jones et al. 2019, GCST007801–007808</td></tr>
+<tr><td><code>gwas_catalog_PER3_associations.tsv</code></td><td>the 28 associations that the GWAS Catalog maps to <i>PER3</i> (October 2026): variant, trait, p-value, study</td><td></td><td>GWAS Catalog</td></tr>
+</table>
+
+<h2><code>gtex/</code> – gene expression</h2>
+<table>
+<tr><td><code>GTEx_v8_PER3_rs228701.tsv</code></td><td>For 49 tissues of GTEx v8 – 13 of them parts of the brain – the effect of the SNP rs228701 on the amount of <i>PER3</i> RNA (the normalised effect size, NES, of its alternative allele G, and its p-value) and how many donors have each genotype. From the GTEx Portal's API (stage 9; you can also ask the API yourself).</td></tr>
+</table>
+
+<h2><code>primates/</code> – <i>PER3</i> in other species</h2>
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>PER3_repeat_exon_DNA.fa</code></td><td>The DNA of the repeat's exon and about 150 bases around it, in the direction of the gene, from 35 genomes of 28 primate species: the reference assemblies of NCBI RefSeq, and for the apes both haplotypes of their complete (T2T) genomes. Found with BLAST of the human exon.</td></tr>
+<tr><td><code>PER3_proteins.fa</code></td><td>The PER3 protein (its longest RefSeq isoform) of 53 species: primates and, for comparison, colugo (only a fragment), mouse, rat, dog, cattle, opossum and chicken.</td></tr>
+<tr><td><code>species.tsv</code></td><td>The species, their common names and groups (great apes, gibbons, Old World monkeys, New World monkeys, tarsiers, lemurs and lorises, other mammals).</td></tr>
+</table>
+
+<h2>To cite</h2>
+<ul>
+  <li><b>HPRC pangenome</b>: Liao et al. 2023, <i>Nature</i> 617: 312–324; Hickey et al. 2024, <i>Nature Biotechnology</i> 42: 663–673; and the release: Human Pangenome Reference Consortium, Release 2 (<a href="https://humanpangenome.org" target="_blank" rel="noopener">humanpangenome.org</a>).</li>
+  <li><b>1000 Genomes, high coverage</b>: Byrska-Bishop et al. 2022, <i>Cell</i> 185: 3426–3440.</li>
+  <li><b>GWAS</b>: Jones et al. 2019 (<i>Nature Communications</i> 10: 343 and 10: 1585), Dashti et al. 2019 (10: 1100) and 2021 (12: 900), Lane et al. 2019 (<i>Nature Genetics</i> 51: 387–393); the GWAS Catalog: Cerezo et al. 2025, <i>Nucleic Acids Research</i> 53: D998–D1005. This research used data of UK Biobank, through those studies.</li>
+  <li><b>GTEx</b>: GTEx Consortium 2020, <i>Science</i> 369: 1318–1330.</li>
+  <li><b>Ape genomes</b>: Yoo et al. 2025, <i>Nature</i> 641: 401–418. <b>Other species</b>: NCBI RefSeq (O'Leary et al. 2016, <i>Nucleic Acids Research</i> 44: D733–D745).</li>
+  <li><b>GRCh38</b>: Genome Reference Consortium; <b>dbSNP</b>: Sherry et al. 2001, <i>Nucleic Acids Research</i> 29: 308–311; <b>Ensembl</b>: Dyer et al. 2025, <i>Nucleic Acids Research</i> 53: D948–D957.</li>
+</ul>
+<p>How the files were made – the commands, the addresses they were downloaded from and their dates – is in <code>data-build/</code> of the site's repository on GitHub.</p>
+<div class="stage-nav"><button type="button" data-goto="h-home"><small>Back</small>← Start here</button></div>
